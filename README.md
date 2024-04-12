@@ -14,6 +14,10 @@ We want to compare models in their accuracy of predicting growth rates. Thus, we
 
 Further Tasks tbd.
 
+## Run the benchmark
+
+To run the benchmark, install the bench package as described below and run `run_benchmark.py`.
+
 ## Development
 
 This repo contains the python package `bench` that you need to install for development. It roughly follows the strategy pattern (read more [here](https://refactoring.guru/design-patterns/strategy))
