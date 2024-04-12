@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List
+import pandas as pd
 
 
 class Strategy(ABC):
@@ -12,7 +13,7 @@ class Strategy(ABC):
     """
 
     @abstractmethod
-    def predict_task1(self, data: List):
+    def predict_task1(self, data: pd.DataFrame):
         pass
 
     @abstractmethod
