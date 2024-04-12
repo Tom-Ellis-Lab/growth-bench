@@ -37,12 +37,13 @@ class Task1:
         import os
 
         # Load and process the data
-        data = pd.read_csv("data/task1/growth_rate.csv")
+        data = pd.read_csv("data/tasks/task1/growth_rate.csv")
 
         # rename column to true
         data.rename(
             columns={
-                "hap a | growth (exponential growth rate) | standard | minimal complete | Warringer J~Blomberg A, 2003": "true"
+                "hap a | growth (exponential growth rate) | standard | minimal complete | Warringer J~Blomberg A, 2003": "true",
+                "orf": "knockout_gene_id",
             },
             inplace=True,
         )
@@ -54,7 +55,17 @@ class Task1:
         from sklearn.metrics import mean_squared_error
         from scipy.stats import pearsonr
 
-        mse = mean_squared_error(result["true"], result["prediction"])
-        pearson = pearsonr(result["true"], result["prediction"])[0]
+        results_notna = result.dropna()
 
-        return {"mse": mse, "pearson": pearson}
+        mse = mean_squared_error(results_notna["true"], results_notna["prediction"])
+        pearson = pearsonr(results_notna["true"], results_notna["prediction"])[0]
+        spearman = results_notna["true"].corr(
+            results_notna["prediction"], method="spearman"
+        )
+
+        return {
+            "mse": mse,
+            "pearson": pearson,
+            "spearman": spearman,
+            "coverage": 1 - result["prediction"].isna().sum() / len(result),
+        }
