@@ -16,7 +16,7 @@ Further Tasks tbd.
 
 ## Development
 
-This repo contains the python package `bench` that you need to install for development.
+This repo contains the python package `bench` that you need to install for development. It roughly follows the strategy pattern (read more [here](https://refactoring.guru/design-patterns/strategy))
 
 ### Setup
 
