@@ -38,6 +38,6 @@ class Task2:
         implementing multiple versions of the algorithm on its own.
         """
 
-        result = self._strategy.predict_task1(["a", "b", "c", "d", "e"])
+        result = self._strategy.predict_task2(["a", "b", "c", "d", "e"])
 
         print(result)
