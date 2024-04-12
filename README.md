@@ -1,10 +1,21 @@
 # growth-bench
+
 A set of tasks comparing machine learning and genome scale metabolic models on the task of predicting growth rates.
 
 ## Goal
+
 We want to compare models in their accuracy of predicting growth rates. Thus, we need a standard implementation of different models, a set of datasets combining inputs and targets, and a set of tasks that the models are evaluated on.
 
+### Task 1
+
+- Task: Predict the growth rate in the exponential phase for the S. Cerevisiae.
+- Test Dataset: phenotype `growth (exponential phase)` of the yeastphenome.org collection
+- Performance Metric: Pearsons Correlation Coefficient
+
+Further Tasks tbd.
+
 ## ToDos
+
 - [ ] Search for datasets with growth rates
 - [ ] Define interesting tasks to evaluate models on
   - [ ] What are current models predicting => let's define those as tasks

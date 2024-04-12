@@ -1,0 +1,34 @@
+"""
+This file runs the full benchmark.
+
+In the strategy pattern, this is the client.
+"""
+
+from bench.tasks import Task1, Task2
+from bench.models import Woytock2018
+
+if __name__ == "__main__":
+    # The client code picks a concrete strategy and passes it to the context.
+    # The client should be aware of the differences between strategies in order
+    # to make the right choice.
+
+    tasks = [Task1, Task2]
+    models = [Woytock2018]
+
+    print("\n==== GROWTH BENCH ====\n")
+
+    for task in tasks:
+        context = None
+        for model in models:
+            if context is None:
+                context = task(model())
+            else:
+                context.strategy = model()
+
+            print(f"\nRunning {task.__name__} with {model.__name__}")
+            try:
+                context.benchmark()
+            except NotImplementedError:
+                print(f"\t{model.__name__} does not support {task.__name__}")
+
+print("\n==== BENCHMARK COMPLETE ====\n")
