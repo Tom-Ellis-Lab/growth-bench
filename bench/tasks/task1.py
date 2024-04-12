@@ -32,12 +32,29 @@ class Task1:
 
         self._strategy = strategy
 
-    def benchmark(self) -> None:
-        """
-        The Context delegates some work to the Strategy object instead of
-        implementing multiple versions of the algorithm on its own.
-        """
+    def benchmark(self) -> dict:
+        import pandas as pd
+        import os
 
-        result = self._strategy.predict_task1(["a", "b", "c", "d", "e"])
+        # Load and process the data
+        data = pd.read_csv("data/task1/growth_rate.csv")
 
-        print(result)
+        # rename column to true
+        data.rename(
+            columns={
+                "hap a | growth (exponential growth rate) | standard | minimal complete | Warringer J~Blomberg A, 2003": "true"
+            },
+            inplace=True,
+        )
+
+        # Predict on dataset
+        result = self._strategy.predict_task1(data)
+
+        # Calculate performance metric (here, MSE and pearson correlation)
+        from sklearn.metrics import mean_squared_error
+        from scipy.stats import pearsonr
+
+        mse = mean_squared_error(result["true"], result["prediction"])
+        pearson = pearsonr(result["true"], result["prediction"])[0]
+
+        return {"mse": mse, "pearson": pearson}
