@@ -13,7 +13,7 @@ class Strategy(ABC):
     """
 
     @abstractmethod
-    def predict_task1(self, data: pd.DataFrame):
+    def predict_task1(self, data: pd.DataFrame) -> pd.DataFrame:
         pass
 
     @abstractmethod
