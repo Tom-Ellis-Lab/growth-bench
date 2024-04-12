@@ -5,7 +5,7 @@ In the strategy pattern, this is the client.
 """
 
 from bench.tasks import Task1, Task2
-from bench.models import Woytock2018, RandomNormal
+from bench.models import Woytock2018, RandomNormal, SimpleFBA
 
 if __name__ == "__main__":
     # The client code picks a concrete strategy and passes it to the context.
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # to make the right choice.
 
     tasks = [Task1, Task2]
-    models = [Woytock2018, RandomNormal]
+    models = [Woytock2018, RandomNormal, SimpleFBA]
 
     print("\n==== GROWTH BENCH ====\n")
 
@@ -34,5 +34,11 @@ if __name__ == "__main__":
                 results[f"{task.__name__}_{model.__name__}"] = result
             except NotImplementedError:
                 print(f"\t{model.__name__} does not support {task.__name__}")
+
+    # Save benchmark results
+    import json
+
+    with open("data/benchmark_results.json", "w") as f:
+        json.dump(results, f)
 
 print("\n==== BENCHMARK COMPLETE ====\n")
