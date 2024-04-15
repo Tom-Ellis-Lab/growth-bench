@@ -1,5 +1,6 @@
 """
 Model: Simple Baseline FBA model
+https://www.ebi.ac.uk/biomodels/BIOMD0000001063#Overview
 """
 
 from __future__ import annotations
