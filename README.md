@@ -20,11 +20,11 @@ To run the benchmark, install the bench package as described below and run `run_
 
 ## Development
 
-This repo contains the python package `bench` that you need to install for development. It roughly follows the strategy pattern (read more [here](https://refactoring.guru/design-patterns/strategy))
+This repo contains the python package `bench` that you need to install for development. The softare architecutre roughly follows the strategy pattern (read more [here](https://refactoring.guru/design-patterns/strategy))
 
 ### Setup
 
-1. Create a new virtual environment to install dependencies and this package into.
+1. Create a new virtual environment to install dependencies and this package into. The requirements file can be found in `bench/requirements.txt`. Install the requirements using pip: `pip install -r requirements.txt`
 2. Install bench as an editable python package: `pip install -e bench`
 
 ### How to add a new task
