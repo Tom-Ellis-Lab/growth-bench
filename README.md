@@ -16,7 +16,7 @@ Further Tasks tbd.
 
 ## Run the benchmark
 
-To run the benchmark, install the bench package as described below and run `run_benchmark.py`.
+To run the benchmark, install the bench package as described below and run `python run_benchmark.py` in the root folder.
 
 ## Development
 
