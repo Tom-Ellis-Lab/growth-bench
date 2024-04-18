@@ -1,0 +1,3 @@
+[submodule "etfl"]
+	path = etfl
+	url = git@github.com:Tom-Ellis-Lab/etfl.git
