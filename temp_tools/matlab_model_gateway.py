@@ -15,8 +15,8 @@ _underscore_re = re.compile(r"_(?P<compartment>[a-z]+)$")
 
 
 def load_model_from_mat(
-    file_path, variable_name=None, inf=float("inf")
-) -> Union[cobra.Model, None]:
+    file_path: str, variable_name=None, inf=float("inf")
+) -> cobra.Model:
     """Load a cobra model stored as a .mat file.
 
     Parameters
