@@ -15,6 +15,10 @@
 
 **Number of genes:**  1162
 
+**Number of variables:** 8260
+
+**Number of constraints:** 2805
+
 Summary of the optimisation
 ---------------------------
 
