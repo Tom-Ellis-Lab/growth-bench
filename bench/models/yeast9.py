@@ -1,6 +1,7 @@
 import cobra
 import multiprocessing
 import os
+from tqdm import tqdm
 
 import pandas as pd
 from typing import Union
@@ -72,7 +73,7 @@ class Yeast9(strategy.Strategy):
 
         print(f"\tUsing {multiprocessing.cpu_count()} cores")
         with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
-            results = list(pool.imap(self._predict_task1, data.iterrows()))
+            results = list(tqdm(pool.imap(self._predict_task1, data.iterrows()), total=len(data)))
 
         for index, result in results:
             data.at[index, "prediction"] = result
