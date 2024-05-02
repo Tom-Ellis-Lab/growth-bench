@@ -9,6 +9,7 @@ You can find the dependencies for each strategy in the respective model's requir
 
 from bench.tasks import Task1, Task2
 from bench.models import Woytock2018, RandomNormal, SimpleFBA
+from bench.models import yeast9
 from bench.models.moma import moma_strategy
 from bench.models.lasso import lasso_strategy
 
@@ -22,6 +23,7 @@ if __name__ == "__main__":
         Woytock2018,
         RandomNormal,
         SimpleFBA,
+        yeast9.Yeast9,
         moma_strategy.MomaStrategy,
         lasso_strategy.LassoStrategy,
     ]
@@ -49,7 +51,7 @@ if __name__ == "__main__":
     # Save benchmark results
     import json
 
-    with open("data/benchmark_results_task.json", "w") as f:
+    with open("data/benchmark_results.json", "w") as f:
         json.dump(results, f)
 
 print("\n==== BENCHMARK COMPLETE ====\n")
