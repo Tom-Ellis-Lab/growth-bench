@@ -1,7 +1,10 @@
+import abc
+
+import pandas as pd
+
 from bench.models.strategy import Strategy
 
-
-class Task1:
+class Task(abc.ABC):
     """
     The Context defines the interface of interest to clients.
     """
@@ -32,10 +35,21 @@ class Task1:
 
         self._strategy = strategy
 
+    @abc.abstractmethod
     def benchmark(self) -> dict:
-        import pandas as pd
-        import os
+        """
+        The Context delegates some work to the Strategy object instead of
+        implementing multiple versions of the algorithm on its own.
+        """
+        pass
 
+
+class Task1(Task):
+    """
+    The Context defines the interface of interest to clients.
+    """
+
+    def benchmark(self) -> dict:
         # Load and process the data
         data = pd.read_csv("data/tasks/task1/growth_rate.csv")
 

@@ -2,10 +2,15 @@
 This file runs the full benchmark.
 
 In the strategy pattern, this is the client.
+
+NOTE: To run multiple strategies, make sure to have all dependencies installed. 
+You can find the dependencies for each strategy in the respective model's requirements-{model}.txt file.
 """
 
 from bench.tasks import Task1, Task2
 from bench.models import Woytock2018, RandomNormal, SimpleFBA
+from bench.models.moma import moma_strategy
+from bench.models.lasso import lasso_strategy
 
 if __name__ == "__main__":
     # The client code picks a concrete strategy and passes it to the context.
@@ -13,7 +18,13 @@ if __name__ == "__main__":
     # to make the right choice.
 
     tasks = [Task1, Task2]
-    models = [Woytock2018, RandomNormal, SimpleFBA]
+    models = [
+        Woytock2018,
+        RandomNormal,
+        SimpleFBA,
+        moma_strategy.MomaStrategy,
+        lasso_strategy.LassoStrategy,
+    ]
 
     print("\n==== GROWTH BENCH ====\n")
 
@@ -38,7 +49,7 @@ if __name__ == "__main__":
     # Save benchmark results
     import json
 
-    with open("data/benchmark_results.json", "w") as f:
+    with open("data/benchmark_results_task.json", "w") as f:
         json.dump(results, f)
 
 print("\n==== BENCHMARK COMPLETE ====\n")
