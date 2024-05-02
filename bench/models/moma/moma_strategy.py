@@ -42,7 +42,7 @@ class MomaParams(strategy.SetupParams):
     momentum: float
     neurons_single_view: int
     neurons_multi_view: int
-    target_data: Optional[pd.Series] = None
+    target_data: Optional[np.ndarray] = None
 
 
 class MomaStrategy(strategy.MultiOmicsStrategy):

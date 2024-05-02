@@ -1,6 +1,5 @@
 import scipy
 import numpy as np
-import pandas as pd
 from sklearn import metrics
 
 
@@ -98,6 +97,13 @@ class Task2(task1.Task):
 
     @property
     def lasso_params(self) -> lasso_strategy.LassoParams:
+        """Get LASSO parameters
+
+        Returns
+        -------
+        lasso_strategy.LassoParams
+            A dataclass object containing the LASSO parameters
+        """
 
         if not hasattr(self, "_lasso_params"):
             preprocessed_data = self._gateway.get_preprocessed_data(
@@ -178,16 +184,26 @@ class Task2(task1.Task):
             ]
         )
 
-        Y_test = pd.Series(self.strategy_params.target_data)
+        Y_test = self.strategy_params.target_data
+
         if prediction.ndim > 1:
             prediction = prediction.ravel()  # Flatten the array
-        prediction = pd.Series(prediction)
 
-        mse = float(metrics.mean_squared_error(y_true=Y_test, y_pred=prediction))
-        r_squared = float(metrics.r2_score(y_true=Y_test, y_pred=prediction))
-        pearson = float(scipy.stats.pearsonr(x=Y_test, y=prediction)[0])
-        spearman = float(Y_test.corr(prediction, method="spearman"))
-        coverage = float(1 - prediction.isna().sum() / len(prediction + Y_test))
+        # Check for NaN and handle them
+        Y_test_ = np.nan_to_num(
+            Y_test
+        )  # Convert NaN to zero (or another specified value)
+        prediction_ = np.nan_to_num(prediction)
+
+        mse = float(metrics.mean_squared_error(y_true=Y_test_, y_pred=prediction_))
+        r_squared = self.r_squared(Y=Y_test_, predictions=prediction_)
+        pearson, _ = scipy.stats.pearsonr(Y_test_, prediction_)
+        spearman, _ = scipy.stats.spearmanr(Y_test_, prediction_)
+
+        # Calculate coverage
+        non_nan_count = np.count_nonzero(~np.isnan(prediction_))
+        total_count = len(prediction_)
+        coverage = float(non_nan_count / total_count)
 
         result = {
             "mse": mse,
@@ -198,3 +214,25 @@ class Task2(task1.Task):
         }
 
         return result
+
+    @staticmethod
+    def r_squared(Y: np.ndarray, predictions: np.ndarray) -> float:
+        """Calculate the coefficient of determination R^2.
+
+        Parameters
+        ----------
+        Y : np.ndarray
+            The actual target data.
+        predictions : np.ndarray
+            The predicted data from the model.
+
+        Returns
+        -------
+        float
+            The calculated R^2 value.
+        """
+        residual = Y - predictions
+        residual_sum_of_squares = np.sum(np.square(residual))
+        total_sum_of_squares = np.sum(np.square(Y - np.mean(Y)))
+
+        return 1 - (residual_sum_of_squares / total_sum_of_squares)

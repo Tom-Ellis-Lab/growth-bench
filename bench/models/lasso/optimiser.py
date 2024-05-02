@@ -3,7 +3,7 @@ import time
 import cvxpy
 import numpy as np
 
-import gurobipy # necessary to run the optimisation
+import gurobipy  # necessary to run the optimisation
 
 
 def loss(
@@ -36,10 +36,9 @@ def loss(
     beta = cvxpy.hstack(
         [beta_gene_expression, beta_fluxes]
     )  # Horizontal concatenation of an arbitrary number of Expressions.
-    intercept = np.repeat(intercept_value.value, Y.shape[0])
     x_beta = cvxpy.matmul(X, beta)
     Y_minus_x_beta = Y - x_beta
-    Y_minus_x_beta_minus_intercept = Y_minus_x_beta - intercept
+    Y_minus_x_beta_minus_intercept = Y_minus_x_beta - intercept_value
     norm2 = cvxpy.norm2(Y_minus_x_beta_minus_intercept)
     return norm2**2
 
@@ -220,6 +219,28 @@ def mse(
     return (1.0 / X.shape[0]) * loss(X, Y, beta_ge, beta_mf, intercept_value).value
 
 
+def r_squared(Y: np.ndarray, predictions: np.ndarray) -> float:
+    """Calculate the coefficient of determination R^2.
+
+    Parameters
+    ----------
+    Y : np.ndarray
+        The actual target data.
+    predictions : np.ndarray
+        The predicted data from the model.
+
+    Returns
+    -------
+    float
+        The calculated R^2 value.
+    """
+    residual = Y - predictions
+    residual_sum_of_squares = np.sum(np.square(residual))
+    total_sum_of_squares = np.sum(np.square(Y - np.mean(Y)))
+
+    return 1 - (residual_sum_of_squares / total_sum_of_squares)
+
+
 def optimise(
     process: int,
     lambdas_gene_expression: float,
@@ -306,6 +327,16 @@ def optimise(
     )
     problem.solve(solver=cvxpy.GUROBI)
 
+    # Calculate predictions for MSE and R^2
+    predictions_train = (
+        X_train @ np.hstack([beta_gene_expression.value, beta_fluxes.value])
+        + intercept_param.value
+    )
+    predictions_test = (
+        X_test @ np.hstack([beta_gene_expression.value, beta_fluxes.value])
+        + intercept_param.value
+    )
+
     train_error = mse(
         X=X_train,
         Y=Y_train,
@@ -320,10 +351,15 @@ def optimise(
         beta_mf=beta_fluxes,
         intercept_value=intercept_param,
     )
+
+    # Calculate R^2
+    r2_train = r_squared(Y_train, predictions_train)
+    r2_test = r_squared(Y_test, predictions_test)
+
     total_time = (time.time() - substart_time) / 60
     print(
-        "Process: {}, Total time in minutes: {}, Train error:{}, Test error: {}".format(
-            process, total_time, train_error, test_error
+        "Process: {}, Total time in minutes: {}, Train error:{}, Test error: {}, Train R^2: {}, Test R^2: {}".format(
+            process, total_time, train_error, test_error, r2_train, r2_test
         )
     )
     result = {

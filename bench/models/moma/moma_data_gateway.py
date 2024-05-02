@@ -30,8 +30,8 @@ class MomaDataclass:
     scaled_gene_expression_testing_data: np.ndarray
     scaled_flux_training_data: np.ndarray
     scaled_flux_testing_data: np.ndarray
-    target_training_data: pd.Series
-    target_testing_data: pd.Series
+    target_training_data: np.ndarray
+    target_testing_data: np.ndarray
 
 
 def get_gene_expression_training_data(
@@ -190,7 +190,7 @@ def get_target_training_data(
     complete_data: pd.DataFrame,
     testing_data_indices: list[int],
     target_name: str = TARGET_NAME,
-) -> pd.Series:
+) -> np.ndarray:
     """Get the target training data.
 
     Parameters:
@@ -209,7 +209,7 @@ def get_target_training_data(
     """
     target_data = complete_data[target_name]
     result = target_data.drop(target_data.index[testing_data_indices])
-    result = result.astype(np.float32)
+    result = result.astype(np.float32).to_numpy()
 
     return result
 
@@ -218,7 +218,7 @@ def get_target_testing_data(
     complete_data: pd.DataFrame,
     testing_data_indices: list[int],
     target_name: str = TARGET_NAME,
-) -> pd.Series:
+) -> np.ndarray:
     """Get the target testing data.
 
     Parameters:
@@ -237,7 +237,7 @@ def get_target_testing_data(
     """
     target_data = complete_data[target_name]
     result = target_data.iloc[testing_data_indices]
-    result = result.astype(np.float32)
+    result = result.astype(np.float32).to_numpy()
 
     return result
 
