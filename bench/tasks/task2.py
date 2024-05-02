@@ -36,15 +36,6 @@ class Task2(task1.Task):
         self._gateway = moma_data_gateway
         self.strategy = strategy
 
-    def set_strategy_params(self):
-        if isinstance(self.strategy, moma_strategy.MomaStrategy):
-            self._strategy_param = self.moma_params
-        elif isinstance(self.strategy, lasso_strategy.LassoStrategy):
-            self._strategy_param = self.lasso_params
-        else:
-            self._strategy_param = self.strategy_params
-        return self._strategy_param
-
     @property
     def strategy_params(self) -> strategy_.SetupParams:
         """Get the strategy parameters
@@ -54,11 +45,16 @@ class Task2(task1.Task):
         strategy.SetupParams
             A dataclass object containing the strategy parameters
         """
-        self._strategy_param = strategy_.SetupParams(
-            gene_expression_data=None,
-            flux_data=None,
-        )
-        return self._strategy_param
+        if isinstance(self.strategy, moma_strategy.MomaStrategy):
+            self._strategy_params = self.moma_params
+        elif isinstance(self.strategy, lasso_strategy.LassoStrategy):
+            self._strategy_params = self.lasso_params
+        else:
+            self._strategy_params = strategy_.SetupParams(
+                gene_expression_data=None,
+                flux_data=None,
+            )
+        return self._strategy_params
 
     @property
     def moma_params(self) -> moma_strategy.MomaParams:
@@ -175,12 +171,14 @@ class Task2(task1.Task):
             A dictionary containing the benchmark results (MSE, Pearson, Spearman, Coverage, R-squared)
         """
 
-        strategy_params = self.set_strategy_params()
         prediction = self.strategy.predict_task2(
-            data=[strategy_params.flux_data, strategy_params.gene_expression_data]
+            data=[
+                self.strategy_params.flux_data,
+                self.strategy_params.gene_expression_data,
+            ]
         )
 
-        Y_test = pd.Series(strategy_params.target_data)
+        Y_test = pd.Series(self.strategy_params.target_data)
         if prediction.ndim > 1:
             prediction = prediction.ravel()  # Flatten the array
         prediction = pd.Series(prediction)
