@@ -29,6 +29,7 @@ etfl = [
   "sphinx-rtd-theme",
   "xlrd>0.9.0"
 ]
+yeast9 = ["cobra"]
 lasso = ["cvxpy", "gurobipy", "pyreadr", "scikit-learn"]
-moma = ["keras", "matplotlib", "pyreadr", "seaborn", "scikit-learn", "tensorflow"]
-all = ["bench[simplefba]", "bench[lasso]", "bench[moma]"]
+moma = ["keras", "matplotlib", "pyreadr", "scikit-learn", "tensorflow"]
+all = ["bench[simplefba]", "bench[yeast9]", "bench[lasso]", "bench[moma]"]
