@@ -1,4 +1,5 @@
-# growth-bench
+# Growth Bench
+Authors: Piotr Gidzinski and Timon Schneider
 
 A set of tasks comparing machine learning and genome scale metabolic models on the task of predicting growth rates.
 
@@ -16,7 +17,13 @@ Further Tasks tbd.
 
 ## Run the benchmark
 
-To run the benchmark, install the bench package as described below and run `python run_benchmark.py` in the root folder.
+To run the benchmark:
+
+1. Create a virtual env to install the bench package with python version 3.10.2 (e.g. with pyenv: `pyenv virtualenv 3.10.2 growth-bench`)
+2. Install `bench` package: `pip install -e "bench[all]"`. You can choose to only install dependencies for some of the models using `pip install -e "bench[<model>]"`. (See pyproject.toml for exact names.)
+3. Run `python run_benchmark.py` in the root folder.
+
+You can reach out via email to mail@timonschneider.de to get support in case you have troubles running the benchmark.
 
 ## Development
 
@@ -41,11 +48,41 @@ This repo contains the python package `bench` that you need to install for devel
 1. Create a new model file in the `models` folder (follow the naming scheme `[firstAuthorLastName][publicationDate].py`)
 2. Follow the implementation in `models/example.py`
 
-## ToDos
+# Results
 
-- [ ] Search for datasets with growth rates
-- [ ] Define interesting tasks to evaluate models on
-  - [ ] What are current models predicting => let's define those as tasks
-- [ ] Create a standardized way to access data
-- [ ] Implement/Port models to work on the prepared datasets
-- [ ] Add and evaluate additional models on the datasets
+```json
+{
+  "Task1_RandomNormal": {
+    "mse": 0.013432721299113312, 
+    "pearson": -0.009558330017799769, 
+    "spearman": -0.00140220703592111, 
+    "coverage": 1.0
+  }, 
+  "Task1_SimpleFBA": {
+    "mse": 0.022708978466618762, 
+    "pearson": 0.03130686259258242, 
+    "spearman": 0.015697817879734764, 
+    "coverage": 0.1948135447921132
+  }, 
+  "Task1_Yeast9": {
+    "mse": 0.023105975251630537, 
+    "pearson": 0.029784631220184526, 
+    "spearman": 0.09031747518292652, 
+    "coverage": 0.19524217745392203
+  }, 
+  "Task2_MomaStrategy": {
+    "mse": 0.014203120023012161, 
+    "pearson": 0.8623281765291522, 
+    "spearman": 0.69828412990386, 
+    "coverage": 1.0, 
+    "r_squared": 0.7379358410835266
+  }, 
+  "Task2_LassoStrategy": {
+    "mse": 0.010653044147426327, 
+    "pearson": 0.9016681798226693, 
+    "spearman": 0.6644344923579715, 
+    "coverage": 1.0, 
+    "r_squared": 0.8034388914091549
+  }
+}
+```
