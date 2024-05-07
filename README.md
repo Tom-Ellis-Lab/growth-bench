@@ -86,12 +86,3 @@ This repo contains the python package `bench` that you need to install for devel
   }
 }
 ```
-
-## ToDos
-
-- [ ] Search for datasets with growth rates
-- [ ] Define interesting tasks to evaluate models on
-  - [ ] What are current models predicting => let's define those as tasks
-- [ ] Create a standardized way to access data
-- [ ] Implement/Port models to work on the prepared datasets
-- [ ] Add and evaluate additional models on the datasets
