@@ -1,3 +1,34 @@
 [project]
 name = "bench"
 version = "2024.0.0"
+description = "A modular benchmarking tool"
+dependencies = [ # These dependencies are required for any model
+    "tqdm", 
+    "pandas",
+    "scipy", 
+    "numpy"
+]
+
+[project.optional-dependencies] 
+simplefba = ["cobra"]
+etfl = [
+  "bokeh>=0.12.1",
+  "biopython",
+  "cobra",
+  "ipdb",
+  "lxml",
+  "openpyxl",
+  "pymysql",
+  "pytest",
+  "pytfa",
+  "python-libsbml",
+  "scikit-learn",
+  "sqlalchemy",
+  "tabulate",
+  "sphinx",
+  "sphinx-rtd-theme",
+  "xlrd>0.9.0"
+]
+lasso = ["cvxpy", "gurobipy", "pyreadr", "scikit-learn"]
+moma = ["keras", "matplotlib", "pyreadr", "seaborn", "scikit-learn", "tensorflow"]
+all = ["bench[simplefba]", "bench[lasso]", "bench[moma]"]
