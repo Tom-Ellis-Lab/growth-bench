@@ -17,7 +17,13 @@ Further Tasks tbd.
 
 ## Run the benchmark
 
-To run the benchmark, install the bench package as described below and run `python run_benchmark.py` in the root folder.
+To run the benchmark:
+
+1. Create a virtual env to install the bench package with python version 3.10.2 (e.g. with pyenv: `pyenv virtualenv 3.10.2 growth-bench`)
+2. Install `bench` package: `pip install -e "bench[all]"`. You can choose to only install dependencies for some of the models using `pip install -e "bench[<model>]"`. (See pyproject.toml for exact names.)
+3. Run `python run_benchmark.py` in the root folder.
+
+You can reach out via email to mail@timonschneider.de to get support in case you have troubles running the benchmark.
 
 ## Development
 
