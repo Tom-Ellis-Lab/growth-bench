@@ -7,9 +7,9 @@ NOTE: To run multiple strategies, make sure to have all dependencies installed.
 You can find the dependencies for each strategy in the respective model's requirements-{model}.txt file.
 """
 
-from bench.tasks import Task1, Task2
+from bench.tasks import task1, task2, task3
 from bench.models import Woytock2018, RandomNormal, SimpleFBA
-from bench.models import yeast9
+from bench.models import yeast9_strategy
 from bench.models.moma import moma_strategy
 from bench.models.lasso import lasso_strategy
 
@@ -18,12 +18,12 @@ if __name__ == "__main__":
     # The client should be aware of the differences between strategies in order
     # to make the right choice.
 
-    tasks = [Task1, Task2]
+    tasks = [task1.Task1, task2.Task2, task3.Task3]
     models = [
         Woytock2018,
         RandomNormal,
         SimpleFBA,
-        yeast9.Yeast9,
+        yeast9_strategy.Yeast9Strategy,
         moma_strategy.MomaStrategy,
         lasso_strategy.LassoStrategy,
     ]

@@ -23,3 +23,6 @@ class RandomNormal(Strategy):
 
     def predict_task2(self, data: List):
         raise NotImplementedError("This model does not support Task 2")
+    
+    def predict_task3(self, data: pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError("This model does not support Task 3")

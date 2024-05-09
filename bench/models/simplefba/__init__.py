@@ -1,54 +1,59 @@
-"""
-Model: Simple Baseline FBA model
-https://www.ebi.ac.uk/biomodels/BIOMD0000001063#Overview
-"""
-
-from __future__ import annotations
-from typing import List
+import os
+from typing import Callable, Union
 import pandas as pd
-import numpy as np
-from tqdm import tqdm
-import multiprocessing as mp
 from cobra.io import read_sbml_model
 
-from bench.models.strategy import Strategy
+from bench.models import strategy
 
 
-class SimpleFBA(Strategy):
-    model_path = "data/models/simplefba/yeast-GEM.xml"
+class SimpleFBA(strategy.ConstraintBasedStrategy):
+    """Simple Baseline FBA model
+    https://www.ebi.ac.uk/biomodels/BIOMD0000001063#Overview
 
-    @staticmethod
-    def _predict(args):
-        index, row = args
-        try:
-            ko_model = read_sbml_model(SimpleFBA.model_path)
-            gene_id = row["knockout_gene_id"]
-            gene = ko_model.genes.get_by_id(gene_id)
-            gene.knock_out()
-            ko_solution = ko_model.optimize()
-            return index, ko_solution.objective_value
-        except:
-            return index, None
+    Parameters
+    ----------
+    None
 
-    def predict_task1(self, data: pd.DataFrame) -> pd.DataFrame:
-        import os
+    Attributes
+    ----------
+    model_path: str
+        path to the simplefba model
+    model: cobra.Model
+        simplefba model
+    """
+    def __init__(
+            self,
+            model_name: str = "simplefba",
+            model_path: str = "data/models/simplefba/yeast-GEM.xml",
+            gateway: Callable = read_sbml_model
+    ) -> None:
+        super().__init__(
+            model_name=model_name, 
+            model_path=model_path, 
+            gateway=gateway
+        )
 
-        # Check whether predictions have already been computed
-        if os.path.exists("data/predictions/simplefba/task1_results.csv"):
-            print("\tUsing cached results")
-            return pd.read_csv("data/predictions/simplefba/task1_results.csv")
-
-        print(f"\tUsing {mp.cpu_count()} cores")
-        with mp.Pool(processes=mp.cpu_count()) as pool:
-            results = list(pool.imap(SimpleFBA._predict, data.iterrows()))
-
-        # Update DataFrame with results
-        for index, result in results:
-            data.at[index, "prediction"] = result
-
-        print(f"Could not build model for {data['prediction'].isna().sum()} genes")
-        data.to_csv("data/predictions/simplefba/task1_results.csv", index=False)
-        return data
-
-    def predict_task2(self, data: List):
+    def _get_model_from_path(
+        self, model_path: Union[str, None], gateway: Union[Callable, None]
+    ) -> None:
+        """
+        For SimpleFBA, the file is too large to be stored in the repository.
+        However, if the predictions exist, they are loaded from the file and 
+        results can be computed.
+        Else, raise an error.
+        """
+        predictions_path = "data/predictions/simplefba/growth_rate_predictions.csv"
+        if not os.path.exists(predictions_path):
+            raise FileNotFoundError(f"Predictions file does not exist for SimpleFBA strategy: {predictions_path}")
+    
+    def predict_task2(self, data: list):
         raise NotImplementedError("This model does not support Task 2")
+    
+    def predict_task3(self, data: pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError("This model does not support Task 3")
+    
+    def setup_strategy(self, param: strategy.SetupParams) -> None:
+        """
+        This method should not be implemented in the Yeast9 model
+        """
+        raise NotImplementedError("This model does not support setup_strategy")
