@@ -1,6 +1,0 @@
-cvxpy
-gurobipy
-numpy
-pandas
-pyreadr
-scikit-learn
