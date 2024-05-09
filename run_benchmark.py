@@ -2,9 +2,6 @@
 This file runs the full benchmark.
 
 In the strategy pattern, this is the client.
-
-NOTE: To run multiple strategies, make sure to have all dependencies installed. 
-You can find the dependencies for each strategy in the respective model's requirements-{model}.txt file.
 """
 
 from bench.tasks import task1, task2, task3

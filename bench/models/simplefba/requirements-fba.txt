@@ -1,4 +1,0 @@
-cobra
-numpy
-pandas
-tqdm
