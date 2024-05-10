@@ -1,8 +1,11 @@
 import abc
 
 import pandas as pd
+from sklearn.metrics import mean_squared_error
+from scipy.stats import pearsonr
 
 from bench.models.strategy import Strategy
+
 
 class Task(abc.ABC):
     """
@@ -16,6 +19,7 @@ class Task(abc.ABC):
         """
 
         self._strategy = strategy
+        self._predict = None
 
     @property
     def strategy(self) -> Strategy:
@@ -43,31 +47,43 @@ class Task(abc.ABC):
         """
         pass
 
+    @abc.abstractmethod
+    def predict(self) -> pd.DataFrame:
+        """
+        The Context delegates some work to the Strategy object instead of
+        implementing multiple versions of the algorithm on its own.
+        """
+        pass
+
 
 class Task1(Task):
     """
-    The Context defines the interface of interest to clients.
+    Task 1 - comparing predictions against experimental data (e.g. growth rates)
+
+    experimental data source: WARRINGER & BLOMBERG https://www.yeastgenome.org/reference/S000140659
     """
 
-    def benchmark(self) -> dict:
-        # Load and process the data
-        data = pd.read_csv("data/tasks/task1/growth_rate.csv")
+    _data = pd.read_csv("data/tasks/task1/growth_rates_warringer.csv")
 
-        # rename column to true
-        data.rename(
-            columns={
-                "hap a | growth (exponential growth rate) | standard | minimal complete | Warringer J~Blomberg A, 2003": "true",
-                "orf": "knockout_gene_id",
-            },
-            inplace=True,
-        )
+    def __init__(self, strategy: Strategy) -> None:
+        """
+        Parameters
+        ----------
+        strategy: Strategy
+            the strategy to use for the task
+        """
+        self._strategy = strategy
 
-        # Predict on dataset
-        result = self._strategy.predict_task1(data)
+    def benchmark(self) -> dict[str, float]:
+        """
+        Calculate the performance metrics for the task
 
-        # Calculate performance metric (here, MSE and pearson correlation)
-        from sklearn.metrics import mean_squared_error
-        from scipy.stats import pearsonr
+        Returns
+        -------
+        dict
+            the metrics for the task (MSE, pearson, spearman, coverage)
+        """
+        result = self.predict()
 
         results_notna = result.dropna()
 
@@ -78,8 +94,19 @@ class Task1(Task):
         )
 
         return {
-            "mse": mse,
+            "mse": float(mse),
             "pearson": pearson,
             "spearman": spearman,
             "coverage": 1 - result["prediction"].isna().sum() / len(result),
         }
+
+    def predict(self) -> pd.DataFrame:
+        """
+        Predict the growth rate using task1
+
+        Returns
+        -------
+        pd.DataFrame
+            the predicted growth rate data
+        """
+        return self._strategy.predict_task1(self._data)

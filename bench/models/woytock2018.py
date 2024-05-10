@@ -23,6 +23,9 @@ class Woytock2018(Strategy):
 
     def predict_task2(self, data: List):
         raise NotImplementedError("This model does not support Task 2")
-    
+
     def predict_task3(self, data: pd.DataFrame) -> pd.DataFrame:
         raise NotImplementedError("This model does not support Task 3")
+
+    def predict_task4(self, data: pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError("This model does not support Task 4")

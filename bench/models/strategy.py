@@ -31,6 +31,10 @@ class Strategy(abc.ABC):
     def predict_task3(self, data: pd.DataFrame) -> pd.DataFrame:
         pass
 
+    @abc.abstractmethod
+    def predict_task4(self, data: pd.DataFrame) -> pd.DataFrame:
+        pass
+
 
 @dataclasses.dataclass
 class SetupParams:
@@ -83,7 +87,9 @@ class ConstraintBasedStrategy(Strategy):
             model_path=self.model_path, gateway=gateway
         )
 
-    def _predict_single_growth_rate(self, index_row_tuple) -> tuple[int, Union[float, None]]:
+    def _predict_single_growth_rate(
+        self, index_row_tuple
+    ) -> tuple[int, Union[float, None]]:
         """
         Parameters
         ----------
@@ -126,7 +132,7 @@ class ConstraintBasedStrategy(Strategy):
             return data
         data = self._predict_growth_rates(data=data, results_path=results_path)
         return data
-    
+
     def _predict_growth_rates(self, data: pd.DataFrame, results_path) -> pd.DataFrame:
         """
         Parameters
@@ -144,7 +150,9 @@ class ConstraintBasedStrategy(Strategy):
 
         Predict the growth rate given the gene knockout data
         """
-        predictions_path = "data/predictions/" + self.model_name + "/growth_rate_predictions.csv"
+        predictions_path = (
+            "data/predictions/" + self.model_name + "/growth_rate_predictions.csv"
+        )
 
         if os.path.exists(predictions_path):
             print("\tUsing cached predictions")
@@ -156,17 +164,17 @@ class ConstraintBasedStrategy(Strategy):
             with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
                 results = list(
                     tqdm.tqdm(
-                        pool.imap(self._predict_single_growth_rate, data.iterrows()), total=len(data)
+                        pool.imap(self._predict_single_growth_rate, data.iterrows()),
+                        total=len(data),
                     )
                 )
-        
+
         for index, result in results:
             data.at[index, "prediction"] = result
 
         print(f"Could not build model for {data['prediction'].isna().sum()} genes")
         data.to_csv(results_path, index=False)
         return data
-
 
     def _get_model_from_path(
         self, model_path: Union[str, None], gateway: Union[Callable, None]
@@ -207,6 +215,26 @@ class ConstraintBasedStrategy(Strategy):
         data = self._predict_growth_rates(data=data, results_path=results_path)
         return data
 
+    def predict_task4(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Predict the growth rate given the gene knockout data
+        Parameters
+        ----------
+        data: pd.DataFrame
+            gene knockout data
+
+        Returns
+        -------
+        pd.DataFrame
+            predicted growth rate data
+        """
+        results_path = "data/predictions/" + self.model_name + "/task4_results.csv"
+        if os.path.exists(results_path):
+            print("\tUsing cached results")
+            data = pd.read_csv(results_path)
+            return data
+        data = self._predict_growth_rates(data=data, results_path=results_path)
+        return data
+
     @abc.abstractmethod
     def setup_strategy(self, param: SetupParams) -> None:
         pass
@@ -230,12 +258,17 @@ class MultiOmicsStrategy(Strategy):
     def predict_task2(self, data: list[np.ndarray]) -> np.ndarray:
         pass
 
-    
     def predict_task3(self, data: pd.DataFrame) -> None:
         """
         This method should not be implemented in the MultiOmicsStrategy class
         """
         raise NotImplementedError("This model does not support Task 3")
+
+    def predict_task4(self, data: pd.DataFrame) -> None:
+        """
+        This method should not be implemented in the MultiOmicsStrategy class
+        """
+        raise NotImplementedError("This model does not support Task 4")
 
     @abc.abstractmethod
     def setup_strategy(self, param: SetupParams) -> None:

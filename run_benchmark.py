@@ -4,7 +4,7 @@ This file runs the full benchmark.
 In the strategy pattern, this is the client.
 """
 
-from bench.tasks import task1, task2, task3
+from bench.tasks import task1, task2, task3, task4
 from bench.models import Woytock2018, RandomNormal, SimpleFBA
 from bench.models import yeast9_strategy
 from bench.models.moma import moma_strategy
@@ -15,7 +15,7 @@ if __name__ == "__main__":
     # The client should be aware of the differences between strategies in order
     # to make the right choice.
 
-    tasks = [task1.Task1, task2.Task2, task3.Task3]
+    tasks = [task1.Task1, task2.Task2, task3.Task3, task4.Task4]
     models = [
         Woytock2018,
         RandomNormal,

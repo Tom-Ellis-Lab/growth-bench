@@ -1,3 +1,4 @@
+from pandas.core.api import DataFrame as DataFrame
 import scipy
 import numpy as np
 from sklearn import metrics
@@ -177,12 +178,7 @@ class Task2(task1.Task):
             A dictionary containing the benchmark results (MSE, Pearson, Spearman, Coverage, R-squared)
         """
 
-        prediction = self.strategy.predict_task2(
-            data=[
-                self.strategy_params.flux_data,
-                self.strategy_params.gene_expression_data,
-            ]
-        )
+        prediction = self.predict()
 
         Y_test = self.strategy_params.target_data
 
@@ -214,6 +210,15 @@ class Task2(task1.Task):
         }
 
         return result
+
+    def predict(self) -> DataFrame:
+        prediction = self.strategy.predict_task2(
+            data=[
+                self.strategy_params.flux_data,
+                self.strategy_params.gene_expression_data,
+            ]
+        )
+        return prediction
 
     @staticmethod
     def r_squared(Y: np.ndarray, predictions: np.ndarray) -> float:
