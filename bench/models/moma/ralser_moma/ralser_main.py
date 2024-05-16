@@ -19,6 +19,7 @@ NEURONS = 1000
 BATCHES = 256
 VALIDATION = 0.1
 
+
 def ralser_main():
     print("\n==== RALSER PROTEOMICS SINGLE VIEW MODEL ====\n")
     print("Loading data...")
@@ -38,7 +39,9 @@ def ralser_main():
     proteomics_data = preprocessed_data["proteomics"]
     growth_data = preprocessed_data["growth"]
 
-    proteomics_data = ralser_train.split(data=proteomics_data, test_indices=test_indices)
+    proteomics_data = ralser_train.split(
+        data=proteomics_data, test_indices=test_indices
+    )
     growth_data = ralser_train.split(data=growth_data, test_indices=test_indices)
 
     X_train = proteomics_data["train"]
@@ -67,7 +70,7 @@ def ralser_main():
         y_test=y_test,
         learning_rate=LEARNING_RATE,
         epochs=EPOCHS,
-        batches=BATCHES,
+        batch_size=BATCHES,
         momentum=MOMENTUM,
         validation=VALIDATION,
         weights_to_save_dir="data/models/moma/",
@@ -86,10 +89,9 @@ def ralser_main():
         print(f"{key}: {value}")
 
 
-
 def _get_test_indices() -> list[int]:
     """Get the test indices from the test_indices_ralser.csv file.
-    
+
     Returns
     -------
     list[int]
@@ -98,7 +100,7 @@ def _get_test_indices() -> list[int]:
     with open("data/models/moma/test_indices_ralser.csv", "r") as csvfile:
         test_indices = []
         for row in csv.reader(csvfile, delimiter=";"):
-            test_indices.append(row[0]) 
+            test_indices.append(row[0])
     test_indices = list(map(int, test_indices))
     return test_indices
 
