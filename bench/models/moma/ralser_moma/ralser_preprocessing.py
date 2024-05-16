@@ -6,14 +6,14 @@ def ralser_preprocessing(
     growth_data: pd.DataFrame,
 ) -> dict[str, pd.DataFrame]:
     """Preprocess the Ralser dataset for the MOMA model.
-    
+
     Parameters
     ----------
     proteomics_data : pd.DataFrame
         The proteomics data.
     growth_data : pd.DataFrame
         The growth data.
-        
+
     Returns
     -------
     dict[str, pd.DataFrame]
@@ -24,7 +24,7 @@ def ralser_preprocessing(
     proteomics_data = _remove_quality_controls(data=proteomics_data)
     proteomics_data = _remove_his3delta_controls(data=proteomics_data)
     # Rename the columns to the systematic gene names
-    proteomics_data =_rename_ralser_columns(data=proteomics_data)
+    proteomics_data = _rename_ralser_columns(data=proteomics_data)
     # Set the first column as the index
     proteomics_data.set_index(proteomics_data.columns[0], inplace=True)
     proteomics_data.index.name = "protein_id"
@@ -39,13 +39,21 @@ def ralser_preprocessing(
     # INTERSECTION - intersect two dataframes
     common_knockouts = proteomics_data.index.intersection(growth_data.index)
 
-    aligned_proteomics_data = proteomics_data[proteomics_data.index.isin(common_knockouts)]
+    aligned_proteomics_data = proteomics_data[
+        proteomics_data.index.isin(common_knockouts)
+    ]
     aligned_growth_data = growth_data[growth_data.index.isin(common_knockouts)]
- 
+
     # remove duplicates - keep only one of the duplicates
     aligned_proteomics_data_no_duplicates = aligned_proteomics_data[
         ~aligned_proteomics_data.index.duplicated(keep="first")
     ]
+
+    # sort the dataframes by the knockout name
+    aligned_proteomics_data_no_duplicates = (
+        aligned_proteomics_data_no_duplicates.sort_index()
+    )
+    aligned_growth_data = aligned_growth_data.sort_index()
 
     result = {
         "proteomics": aligned_proteomics_data_no_duplicates,
@@ -56,12 +64,12 @@ def ralser_preprocessing(
 
 def _remove_quality_controls(data: pd.DataFrame) -> pd.DataFrame:
     """Remove quality control columns from the dataset (_qc_qc_qc).
-    
+
     Parameters
     ----------
     data : pd.DataFrame
         The dataset to remove quality control columns from.
-        
+
     Returns
     -------
     pd.DataFrame
@@ -69,9 +77,7 @@ def _remove_quality_controls(data: pd.DataFrame) -> pd.DataFrame:
     """
     # Remove the quality control columns (they contain "_qc_qc_qc")
     quality_control_data = data.filter(regex="_qc_qc_qc", axis=1)
-    result = data.drop(
-        quality_control_data.columns, axis=1
-    )  
+    result = data.drop(quality_control_data.columns, axis=1)
     return result
 
 
@@ -89,10 +95,9 @@ def _remove_his3delta_controls(data: pd.DataFrame) -> pd.DataFrame:
         The dataset without the his3Δ control strains.
     """
     his3_control_data = data.filter(regex="_HIS3", axis=1)
-    result = data.drop(
-        his3_control_data.columns, axis=1
-    ) 
+    result = data.drop(his3_control_data.columns, axis=1)
     return result
+
 
 def _rename_ralser_columns(data: pd.DataFrame) -> pd.DataFrame:
     """Rename the columns in the Ralser dataset to the systematic gene names.
@@ -114,14 +119,15 @@ def _rename_ralser_columns(data: pd.DataFrame) -> pd.DataFrame:
     data.columns = new_columns
     return data
 
+
 def _rename_ralser_single_column(col: str) -> str:
     """Rename the original column in Ralser dataset to the systematic gene name.
-    
+
     Parameters
     ----------
     col : str
         The original column name.
-        
+
     Returns
     -------
     str
