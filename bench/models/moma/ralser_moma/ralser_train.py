@@ -24,23 +24,24 @@ def split(data: pd.DataFrame, test_indices: list[int]) -> dict[str, pd.DataFrame
     test_set = data.iloc[test_indices, :]
     train_set = data.drop(data.index[test_indices])
     result = {"train": train_set, "test": test_set}
+
     return result
 
 
 def train_model(
-        model: tf.keras.Model,
-        X_train: pd.DataFrame,
-        y_train: pd.DataFrame,
-        X_test: pd.DataFrame,
-        y_test: pd.DataFrame,
-        learning_rate: float,
-        epochs: int,
-        batches: int,
-        momentum: float,
-        validation: float,
-        weights_to_save_dir: str,
-        weights_name: str,
-    ) -> tf.keras.callbacks.History:
+    model: tf.keras.Model,
+    X_train: pd.DataFrame,
+    y_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+    y_test: pd.DataFrame,
+    learning_rate: float,
+    epochs: int,
+    batch_size: int,
+    momentum: float,
+    validation: float,
+    weights_to_save_dir: str,
+    weights_name: str,
+) -> tf.keras.callbacks.History:
     model.compile(
         loss="mean_squared_error",
         optimizer=tf.keras.optimizers.SGD(
@@ -50,16 +51,19 @@ def train_model(
         ),
         metrics=["mean_absolute_error"],
     )
+
     result = model.fit(
         x=X_train,
         y=y_train,
         epochs=epochs,
-        batch_size=batches,
+        batch_size=batch_size,
         validation_data=(X_test, y_test),
         validation_split=validation,
         verbose=True,
     )
-    model.save_weights(weights_to_save_dir + "proteomics" + weights_name + ".weights.h5")
+    model.save_weights(
+        weights_to_save_dir + "proteomics" + weights_name + ".weights.h5"
+    )
     return result
 
 
@@ -77,10 +81,10 @@ def _plot_loss(history: tf.keras.callbacks.History, plot_to_save_dir: str) -> No
     # plt.plot(epochs, history.history["val_loss"], "b", label="Validation loss")
 
     # Generate the epoch numbers starting from 21 since you cut off the first 20
-    epochs = range(21, len(history.history['loss']) + 1)
+    epochs = range(21, len(history.history["loss"]) + 1)
     # Plot the loss, skipping the first 20 epochs
-    plt.plot(epochs, history.history['loss'][20:], label='train')
-    plt.plot(epochs, history.history['val_loss'][20:], label='validation')
+    plt.plot(epochs, history.history["loss"][20:], label="train")
+    plt.plot(epochs, history.history["val_loss"][20:], label="validation")
 
     plt.title("Training and validation loss")
     plt.xlabel("Epochs")
@@ -89,11 +93,12 @@ def _plot_loss(history: tf.keras.callbacks.History, plot_to_save_dir: str) -> No
     # Save the plot
     plt.savefig(plot_to_save_dir + "/proteomics_model_loss.png")
 
+
 def _evaluate(
-        model: tf.keras.Model,
-        X_test: np.ndarray,
-        y_test: np.ndarray,
-    ) -> dict[str, float]:
+    model: tf.keras.Model,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+) -> dict[str, float]:
     """Evaluate the model on the test set.
 
     Parameters
@@ -114,13 +119,13 @@ def _evaluate(
     y_predict = model.predict(X_test)
     y_predict = y_predict.ravel()
     y_test = y_test.ravel()
-    
+
     # R squared calculation
     residual = y_test - y_predict
     residual_sum_of_squares = np.sum(np.square(residual))
     total_sum_of_squares = np.sum(np.square(y_test - np.mean(y_test)))
     r_squared = 1 - (residual_sum_of_squares / total_sum_of_squares)
-     # Pearson
+    # Pearson
     pearson, _ = scipy.stats.pearsonr(y_test, y_predict)
     # Spearman
     spearman, _ = scipy.stats.spearmanr(y_test, y_predict)
