@@ -161,6 +161,7 @@ cython_debug/
 
 
 experiments/**
+wandb/**
 data/models/simplefba/yeast-GEM.xml
 test_cobra.ipynb
 

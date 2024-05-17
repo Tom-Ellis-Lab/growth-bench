@@ -41,6 +41,7 @@ def train_model(
     validation: float,
     weights_to_save_dir: str,
     weights_name: str,
+    callbacks: list[tf.keras.callbacks.Callback] = [],
 ) -> tf.keras.callbacks.History:
     model.compile(
         loss="mean_squared_error",
@@ -60,10 +61,12 @@ def train_model(
         validation_data=(X_test, y_test),
         validation_split=validation,
         verbose=True,
+        callbacks=callbacks,
     )
     model.save_weights(
         weights_to_save_dir + "proteomics" + weights_name + ".weights.h5"
     )
+    model.save(weights_to_save_dir + "proteomics" + weights_name + ".model.keras")
     return result
 
 

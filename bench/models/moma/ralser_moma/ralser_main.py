@@ -1,23 +1,31 @@
 import csv
 import sys
-
 import sklearn
-
 import pandas as pd
-
 from sklearn import preprocessing
+import wandb
+from wandb.integration.keras import WandbMetricsLogger
 
 sys.path.append(".")
 
 from bench.models.moma import model
 from bench.models.moma.ralser_moma import ralser_preprocessing, ralser_train
 
-LEARNING_RATE = 0.005
-EPOCHS = 1000
-MOMENTUM = 0.75
-NEURONS = 1000
-BATCHES = 256
-VALIDATION = 0.1
+wandb.init(
+    # set the wandb project where this run will be logged
+    project="growth-bench",
+    # track hyperparameters and run metadata with wandb.config
+    config={
+        "learning_rate": 0.005,
+        "epochs": 1000,
+        "momentum": 0.75,
+        "neurons": 1000,
+        "batch_size": 256,
+        "validation": 0.1,
+    },
+)
+
+config = wandb.config
 
 
 def ralser_main():
@@ -57,7 +65,7 @@ def ralser_main():
     proteomics_model = model.init_single_view_model(
         input_dim=X_train.shape[1],
         model_name="proteomics",
-        neurons=NEURONS,
+        neurons=config.neurons,
     )
     print("\n==== DONE ====\n")
 
@@ -68,13 +76,16 @@ def ralser_main():
         y_train=y_train,
         X_test=X_test,
         y_test=y_test,
-        learning_rate=LEARNING_RATE,
-        epochs=EPOCHS,
-        batch_size=BATCHES,
-        momentum=MOMENTUM,
-        validation=VALIDATION,
+        learning_rate=config.learning_rate,
+        epochs=config.epochs,
+        batch_size=config.batch_size,
+        momentum=config.momentum,
+        validation=config.validation,
         weights_to_save_dir="data/models/moma/",
         weights_name="",
+        callbacks=[
+            WandbMetricsLogger(),
+        ],
     )
     print("\n==== DONE ====\n")
 
