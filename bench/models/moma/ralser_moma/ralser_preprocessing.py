@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 
@@ -55,9 +56,15 @@ def ralser_preprocessing(
     )
     aligned_growth_data = aligned_growth_data.sort_index()
 
+    shuffled_indices = np.random.permutation(
+        aligned_proteomics_data_no_duplicates.index
+    )
+    shuffled_proteomics = aligned_proteomics_data_no_duplicates.loc[shuffled_indices]
+    shuffled_growth = aligned_growth_data.loc[shuffled_indices]
+
     result = {
-        "proteomics": aligned_proteomics_data_no_duplicates,
-        "growth": aligned_growth_data,
+        "proteomics": shuffled_proteomics,
+        "growth": shuffled_growth,
     }
     return result
 

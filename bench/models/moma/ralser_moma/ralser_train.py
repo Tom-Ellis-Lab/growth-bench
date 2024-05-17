@@ -1,3 +1,5 @@
+from typing import Union
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -30,26 +32,19 @@ def split(data: pd.DataFrame, test_indices: list[int]) -> dict[str, pd.DataFrame
 
 def train_model(
     model: tf.keras.Model,
-    X_train: pd.DataFrame,
-    y_train: pd.DataFrame,
-    X_test: pd.DataFrame,
-    y_test: pd.DataFrame,
-    learning_rate: float,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
     epochs: int,
     batch_size: int,
-    momentum: float,
-    validation: float,
     weights_to_save_dir: str,
     weights_name: str,
     callbacks: list[tf.keras.callbacks.Callback] = [],
 ) -> tf.keras.callbacks.History:
     model.compile(
         loss="mean_squared_error",
-        optimizer=tf.keras.optimizers.SGD(
-            learning_rate=learning_rate,
-            weight_decay=learning_rate / epochs,
-            momentum=momentum,
-        ),
+        optimizer=tf.keras.optimizers.Adam(),
         metrics=["mean_absolute_error"],
     )
 
@@ -59,7 +54,6 @@ def train_model(
         epochs=epochs,
         batch_size=batch_size,
         validation_data=(X_test, y_test),
-        validation_split=validation,
         verbose=True,
         callbacks=callbacks,
     )
@@ -70,7 +64,7 @@ def train_model(
     return result
 
 
-def _plot_loss(history: tf.keras.callbacks.History, plot_to_save_dir: str) -> None:
+def _plot_loss(loss: list[float], val_loss: list[float], plot_to_save_dir: str) -> None:
     """Plot the loss and validation loss of the model.
 
     Parameters
@@ -84,10 +78,10 @@ def _plot_loss(history: tf.keras.callbacks.History, plot_to_save_dir: str) -> No
     # plt.plot(epochs, history.history["val_loss"], "b", label="Validation loss")
 
     # Generate the epoch numbers starting from 21 since you cut off the first 20
-    epochs = range(21, len(history.history["loss"]) + 1)
+    epochs = range(21, len(loss) + 1)
     # Plot the loss, skipping the first 20 epochs
-    plt.plot(epochs, history.history["loss"][20:], label="train")
-    plt.plot(epochs, history.history["val_loss"][20:], label="validation")
+    plt.plot(epochs, loss[20:], label="train")
+    plt.plot(epochs, val_loss[20:], label="validation")
 
     plt.title("Training and validation loss")
     plt.xlabel("Epochs")
@@ -99,7 +93,7 @@ def _plot_loss(history: tf.keras.callbacks.History, plot_to_save_dir: str) -> No
 
 def _evaluate(
     model: tf.keras.Model,
-    X_test: np.ndarray,
+    X_test: Union[np.ndarray, list[np.ndarray]],
     y_test: np.ndarray,
 ) -> dict[str, float]:
     """Evaluate the model on the test set.

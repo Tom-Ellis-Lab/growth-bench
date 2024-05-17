@@ -16,12 +16,9 @@ wandb.init(
     project="growth-bench",
     # track hyperparameters and run metadata with wandb.config
     config={
-        "learning_rate": 0.005,
         "epochs": 1000,
-        "momentum": 0.75,
         "neurons": 1000,
         "batch_size": 256,
-        "validation": 0.1,
     },
 )
 
@@ -58,8 +55,10 @@ def ralser_main():
     y_test = growth_data["test"]
 
     scaler = preprocessing.StandardScaler().fit(X_train)
-    X_train = scaler.transform(X_train)
+    X_train = scaler.transform(X_train)  # TODO: make sure this is of type np.ndarray
     X_test = scaler.transform(X_test)
+    y_test = y_test.to_numpy()
+    y_train = y_train.to_numpy()
 
     print("\n==== BUILDING NETWORK ====\n")
     proteomics_model = model.init_single_view_model(
@@ -76,11 +75,8 @@ def ralser_main():
         y_train=y_train,
         X_test=X_test,
         y_test=y_test,
-        learning_rate=config.learning_rate,
         epochs=config.epochs,
         batch_size=config.batch_size,
-        momentum=config.momentum,
-        validation=config.validation,
         weights_to_save_dir="data/models/moma/",
         weights_name="",
         callbacks=[
@@ -89,12 +85,24 @@ def ralser_main():
     )
     print("\n==== DONE ====\n")
 
-    ralser_train._plot_loss(history=history, plot_to_save_dir="data/models/moma/")
+    total_samples = len(X_train)  # Total number of samples in the training set
+    normalized_loss = [
+        loss * config.batch_size / total_samples for loss in history.history["loss"]
+    ]
+    normalized_val_loss = [
+        val_loss * config.batch_size / len(X_test)
+        for val_loss in history.history["val_loss"]
+    ]
+    ralser_train._plot_loss(
+        loss=normalized_loss,
+        val_loss=normalized_val_loss,
+        plot_to_save_dir="data/models/moma/",
+    )
 
     results = ralser_train._evaluate(
         model=proteomics_model,
         X_test=X_test,
-        y_test=y_test.to_numpy(),
+        y_test=y_test,
     )
     for key, value in results.items():
         print(f"{key}: {value}")
