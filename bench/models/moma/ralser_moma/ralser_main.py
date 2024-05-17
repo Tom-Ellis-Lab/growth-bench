@@ -107,6 +107,8 @@ def ralser_main():
     for key, value in results.items():
         print(f"{key}: {value}")
 
+    wandb.log(results)
+
 
 def _get_test_indices() -> list[int]:
     """Get the test indices from the test_indices_ralser.csv file.
