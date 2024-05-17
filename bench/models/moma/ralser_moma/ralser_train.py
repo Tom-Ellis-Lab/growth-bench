@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import scipy
 import tensorflow as tf
+import wandb
 
 
 def split(data: pd.DataFrame, test_indices: list[int]) -> dict[str, pd.DataFrame]:
@@ -73,10 +74,6 @@ def _plot_loss(loss: list[float], val_loss: list[float], plot_to_save_dir: str) 
         The history of the model training.
     """
 
-    # epochs = range(1, len(history.history["loss"]) + 1)
-    # plt.plot(epochs, history.history["loss"], "bo", label="Training loss")
-    # plt.plot(epochs, history.history["val_loss"], "b", label="Validation loss")
-
     # Generate the epoch numbers starting from 21 since you cut off the first 20
     epochs = range(21, len(loss) + 1)
     # Plot the loss, skipping the first 20 epochs
@@ -89,6 +86,7 @@ def _plot_loss(loss: list[float], val_loss: list[float], plot_to_save_dir: str) 
     plt.legend()
     # Save the plot
     plt.savefig(plot_to_save_dir + "/proteomics_model_loss.png")
+    plt.clf()
 
 
 def _evaluate(
@@ -131,6 +129,22 @@ def _evaluate(
     non_nan_count = np.count_nonzero(~np.isnan(y_predict))
     total_count = len(y_predict)
     coverage = float(non_nan_count / total_count)
+
+    # Plot predicted vs true growth rates
+
+    plt.scatter(y_test, y_predict)
+    plt.xlabel("True growth rate")
+    plt.ylabel("Predicted growth rate")
+    plt.title("Predicted vs True growth rates")
+    plt.savefig("data/models/moma/proteomics_model_predictions.png")
+    plt.clf()
+
+    # Log the results to W&B
+    columns = ["True growth rate", "Predicted growth rate"]
+    test_table = wandb.Table(columns=columns)
+    for i in range(len(y_test)):
+        test_table.add_data(y_test[i], y_predict[i])
+    wandb.log({"proteomics_model_predictions": test_table})
 
     result = {
         "mae": mae,
