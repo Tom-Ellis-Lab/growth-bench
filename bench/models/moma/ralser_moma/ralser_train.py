@@ -88,6 +88,21 @@ def _plot_loss(loss: list[float], val_loss: list[float], plot_to_save_dir: str) 
     plt.savefig(plot_to_save_dir + "/proteomics_model_loss.png")
     plt.clf()
 
+    data_train_loss = [[x, y] for (x, y) in zip(epochs, loss[20:])]
+    data_val_loss = [[x, y] for (x, y) in zip(epochs, val_loss[20:])]
+    table_train_loss = wandb.Table(data=data_train_loss, columns=["epochs", "loss"])
+    table_val_loss = wandb.Table(data=data_val_loss, columns=["epochs", "loss"])
+    wandb.log(
+        {
+            "train_loss": wandb.plot.line(
+                table_train_loss, "epochs", "loss", title="Training Loss"
+            ),
+            "val_loss": wandb.plot.line(
+                table_val_loss, "epochs", "loss", title="Validation Loss"
+            ),
+        }
+    )
+
 
 def _evaluate(
     model: tf.keras.Model,
