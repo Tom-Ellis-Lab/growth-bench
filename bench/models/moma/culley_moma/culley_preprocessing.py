@@ -79,6 +79,7 @@ def culley_preprocessing(
     growth_data = growth_data.sort_index()
 
     # Shuffling the Data
+    np.random.seed(42)
     shuffled_indices = np.random.permutation(transcriptomics_data.index)
     shuffled_transcriptomics = transcriptomics_data.loc[shuffled_indices]
     shuffled_fluxomics = fluxomics_data.loc[shuffled_indices]

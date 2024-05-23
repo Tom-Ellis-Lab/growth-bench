@@ -1,4 +1,4 @@
-import csv
+import random
 import sys
 
 import pandas as pd
@@ -34,6 +34,8 @@ config = wandb.config
 
 def culley_main():
     print("\n==== CULLEY TRANSCRIPTOMICS FLUXOMICS TWO-VIEW MODEL ====\n")
+    tf.random.set_seed(42)
+    random.seed(42)
     culley_data = get_culley_train_test_data()
     X_train = culley_data["X_train"]
     y_train = culley_data["y_train"]
@@ -58,14 +60,14 @@ def culley_main():
     transcriptomics_model = model.init_single_view_model(
         input_dim=transcriptomics_train.shape[1],
         model_name="transcriptomics",
-        neurons=config.neurons,
+        input_neurons=config.neurons,
     )
     transcriptomics_model.load_weights("data/models/moma/gene_expression_weights.h5")
 
     fluxomics_model = model.init_single_view_model(
         input_dim=fluxomics_train.shape[1],
         model_name="fluxomics",
-        neurons=config.neurons,
+        input_neurons=config.neurons,
     )
 
     fluxomics_model.load_weights("data/models/moma/fluxomic_weights.h5")
@@ -91,7 +93,7 @@ def culley_main():
         y=y_train,
         epochs=config.epochs,
         batch_size=config.batch_size,
-        validation_split=VALIDATION_SPLIT,
+        validation_data=([fluxomics_test, transcriptomics_test], y_test),
         verbose=1,
     )
 
@@ -209,12 +211,6 @@ def get_culley_data() -> dict[str, pd.DataFrame]:
     print("Shape of transcriptomics data", transcriptomics_data.shape)
     # ORIGINAL Duibhir growth rates
     growth_data = full_data[["Row", "log2relT"]]
-
-    # Ralser growth rates
-    growth_rates_ralser = pd.read_csv("data/tasks/task3/yeast5k_growthrates_byORF.csv")
-    growth_rates_ralser = growth_rates_ralser[["orf", "SC"]]
-    growth_rates_ralser.rename(columns={"orf": "Row", "SC": "log2relT"}, inplace=True)
-    growth_data = growth_rates_ralser
 
     standard_and_systematic_names = pd.read_csv(
         "bench/models/moma/yeast_gene_names.tsv", sep="\t"
