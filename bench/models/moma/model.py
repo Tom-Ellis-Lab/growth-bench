@@ -4,7 +4,8 @@ import tensorflow as tf
 def init_single_view_model(
     input_dim: int,
     model_name: str,
-    neurons: int,
+    input_neurons: int,
+    output_neurons: int = 1,
 ) -> tf.keras.Model:
     """Initialize a model with the given parameters.
 
@@ -24,7 +25,7 @@ def init_single_view_model(
 
     # Hidden layer (1)
     layer = tf.keras.layers.Dense(
-        neurons,
+        input_neurons,
         activation="sigmoid",
         kernel_constraint=tf.keras.constraints.max_norm(3),
         name=f"{model_name}_1",
@@ -34,7 +35,7 @@ def init_single_view_model(
 
     # Hidden layer (2)
     layer = tf.keras.layers.Dense(
-        neurons,
+        input_neurons,
         activation="sigmoid",
         kernel_constraint=tf.keras.constraints.max_norm(3),
         name=f"{model_name}_2",
@@ -43,7 +44,7 @@ def init_single_view_model(
     layer = tf.keras.layers.Dropout(rate=0.4)(layer)
 
     # Final output layer
-    predictions = tf.keras.layers.Dense(1, activation="linear")(layer)
+    predictions = tf.keras.layers.Dense(output_neurons, activation="linear")(layer)
     model = tf.keras.Model(inputs=input, outputs=predictions)
     print(f"Summary of the single-view model {model_name}")
     model.summary()
