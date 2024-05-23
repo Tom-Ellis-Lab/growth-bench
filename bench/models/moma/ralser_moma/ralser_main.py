@@ -1,6 +1,6 @@
 import csv
 import sys
-import sklearn
+
 import pandas as pd
 from sklearn import preprocessing
 import wandb
@@ -8,7 +8,7 @@ from wandb.integration.keras import WandbMetricsLogger
 
 sys.path.append(".")
 
-from bench.models.moma import model
+from bench.models.moma import model, train
 from bench.models.moma.ralser_moma import ralser_preprocessing, ralser_train
 
 wandb.init(
@@ -85,7 +85,7 @@ def ralser_main():
     )
     print("\n==== DONE ====\n")
 
-    total_samples = len(X_train)  # Total number of samples in the training set
+    total_samples = len(X_train)
     normalized_loss = [
         loss * config.batch_size / total_samples for loss in history.history["loss"]
     ]
@@ -97,6 +97,7 @@ def ralser_main():
         loss=normalized_loss,
         val_loss=normalized_val_loss,
         plot_to_save_dir="data/models/moma/",
+        name="proteomics",
     )
 
     results = ralser_train._evaluate(
@@ -104,10 +105,55 @@ def ralser_main():
         X_test=X_test,
         y_test=y_test,
     )
+    print("\n==== RALSER 1-VIEW PROTEOMICS MODEL RESULTS ====\n")
     for key, value in results.items():
         print(f"{key}: {value}")
 
     wandb.log(results)
+
+
+def get_ralser_train_test_data(
+    train_indices: pd.Index, test_indices: pd.Index
+) -> dict[str, pd.DataFrame]:
+    """Get the training and test sets for the Ralser proteomics model.
+
+    Parameters
+    ----------
+    train_indices : pd.Index
+        The training set indices.
+    test_indices : pd.Index
+        The test set indices.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        The training and test sets.
+    """
+    proteomics_data_ralser = pd.read_csv("data/models/moma/yeast5k_impute_wide.csv")
+    growth_rates_ralser = pd.read_csv("data/tasks/task3/yeast5k_growthrates_byORF.csv")
+
+    preprocessed_data = ralser_preprocessing.ralser_preprocessing(
+        proteomics_data=proteomics_data_ralser,
+        growth_data=growth_rates_ralser[["orf", "SC"]],
+    )
+
+    proteomics_data = preprocessed_data["proteomics"]
+    growth_data = preprocessed_data["growth"]
+
+    proteomics_data = train.apply_indices_split(
+        data=proteomics_data, train_indices=train_indices, test_indices=test_indices
+    )
+
+    growth_data = train.apply_indices_split(
+        data=growth_data, train_indices=train_indices, test_indices=test_indices
+    )
+
+    return {
+        "X_train": proteomics_data["train"],
+        "y_train": growth_data["train"],
+        "X_test": proteomics_data["test"],
+        "y_test": growth_data["test"],
+    }
 
 
 def _get_test_indices() -> list[int]:

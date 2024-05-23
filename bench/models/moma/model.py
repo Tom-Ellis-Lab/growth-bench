@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+
 def init_single_view_model(
     input_dim: int,
     model_name: str,
@@ -49,13 +50,53 @@ def init_single_view_model(
     return model
 
 
+def init_double_view_model(
+    input1_dim: int,
+    input2_dim: int,
+    neurons: int,
+    model_1: tf.keras.Model,
+    model_2: tf.keras.Model,
+) -> tf.keras.Model:
+    """Initialize a model with two inputs and one output.
+
+    Parameters
+    ----------
+    input1_dim : int
+        The number of features in the first input.
+    input2_dim : int
+        The number of features in the second input.
+    neurons : int
+        The number of neurons in the hidden layers.
+    model_1 : tf.keras.Model
+        The first model to use.
+    model_2 : tf.keras.Model
+        The second model to use.
+
+    Returns
+    -------
+    tf.keras.Model
+
+    """
+    input_1 = tf.keras.layers.Input(shape=(input1_dim,))
+    input_2 = tf.keras.layers.Input(shape=(input2_dim,))
+
+    combined_layer = tf.keras.layers.Concatenate()([model_1(input_1), model_2(input_2)])
+    combined_layer = tf.keras.layers.Dense(
+        neurons,
+        activation="sigmoid",
+        kernel_constraint=tf.keras.constraints.max_norm(3),
+        name="last_hidden",
+    )(combined_layer)
+
+    predictions = tf.keras.layers.Dense(1, activation="linear")(combined_layer)
+    result = tf.keras.Model(inputs=[input_1, input_2], outputs=predictions)
+    return result
+
+
 def init_triple_view_model(
     input1_dim: int,
     input2_dim: int,
     input3_dim: int,
-    learning_rate: float,
-    epochs: int,
-    momentum: float,
     neurons: int,
     model_1: tf.keras.Model,
     model_2: tf.keras.Model,
@@ -71,12 +112,6 @@ def init_triple_view_model(
         The number of features in the second input.
     input3_dim : int
         The number of features in the third input.
-    learning_rate : float
-        The learning rate for the optimizer.
-    epochs : int
-        The number of epochs for training.
-    momentum : float
-        The momentum for the optimizer.
     neurons : int
         The number of neurons in the hidden layers.
     model_1 : tf.keras.Model
@@ -107,13 +142,4 @@ def init_triple_view_model(
 
     predictions = tf.keras.layers.Dense(1, activation="linear")(combined_layer)
     result = tf.keras.Model(inputs=[input_1, input_2, input_3], outputs=predictions)
-
-    sgd = tf.keras.optimizers.SGD(
-        learning_rate=learning_rate,
-        weight_decay=learning_rate / epochs,
-        momentum=momentum,
-    )
-    result.compile(
-        loss="mean_squared_error", optimizer=sgd, metrics=["mean_absolute_error"]
-    )
     return result

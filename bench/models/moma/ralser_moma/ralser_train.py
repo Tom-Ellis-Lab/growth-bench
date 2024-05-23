@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
+from sklearn.decomposition import PCA
 import tensorflow as tf
 import wandb
 
@@ -61,17 +62,26 @@ def train_model(
     model.save_weights(
         weights_to_save_dir + "proteomics" + weights_name + ".weights.h5"
     )
-    model.save(weights_to_save_dir + "proteomics" + weights_name + ".model.keras")
     return result
 
-
-def _plot_loss(loss: list[float], val_loss: list[float], plot_to_save_dir: str) -> None:
+def _plot_loss(
+    loss: list[float],
+    val_loss: list[float],
+    plot_to_save_dir: str,
+    name: str,
+) -> None:
     """Plot the loss and validation loss of the model.
 
     Parameters
     ----------
-    history : tf.keras.callbacks.History
-        The history of the model training.
+    loss : list[float]
+        The training loss.
+    val_loss : list[float]
+        The validation loss.
+    plot_to_save_dir : str
+        The directory to save the plot.
+    name : str
+        The name of the plot.
     """
 
     # Generate the epoch numbers starting from 21 since you cut off the first 20
@@ -85,7 +95,7 @@ def _plot_loss(loss: list[float], val_loss: list[float], plot_to_save_dir: str) 
     plt.ylabel("Loss")
     plt.legend()
     # Save the plot
-    plt.savefig(plot_to_save_dir + "/proteomics_model_loss.png")
+    plt.savefig(plot_to_save_dir + "/" + name + ".png")
     plt.clf()
 
     data_train_loss = [[x, y] for (x, y) in zip(epochs, loss[20:])]
@@ -94,11 +104,11 @@ def _plot_loss(loss: list[float], val_loss: list[float], plot_to_save_dir: str) 
     table_val_loss = wandb.Table(data=data_val_loss, columns=["epochs", "loss"])
     wandb.log(
         {
-            "train_loss": wandb.plot.line(
-                table_train_loss, "epochs", "loss", title="Training Loss"
+            f"train_loss_{name}": wandb.plot.line(
+                table_train_loss, "epochs", "loss", title=f"Training Loss ({name})"
             ),
-            "val_loss": wandb.plot.line(
-                table_val_loss, "epochs", "loss", title="Validation Loss"
+            f"val_loss_{name}": wandb.plot.line(
+                table_val_loss, "epochs", "loss", title=f"Validation Loss ({name})"
             ),
         }
     )
