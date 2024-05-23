@@ -3,6 +3,7 @@ import sys
 
 import pandas as pd
 from sklearn import preprocessing
+import tensorflow as tf
 import wandb
 from wandb.integration.keras import WandbMetricsLogger
 
@@ -69,20 +70,25 @@ def ralser_main():
     print("\n==== DONE ====\n")
 
     print("\n==== TRAINING ====\n")
-    history = ralser_train.train_model(
-        model=proteomics_model,
-        X_train=X_train,
-        y_train=y_train,
-        X_test=X_test,
-        y_test=y_test,
+
+    proteomics_model.compile(
+        loss="mean_squared_error",
+        optimizer=tf.keras.optimizers.Adam(),
+        metrics=["mean_absolute_error"],
+    )
+    history = proteomics_model.fit(
+        x=X_train,
+        y=y_train,
         epochs=config.epochs,
         batch_size=config.batch_size,
-        weights_to_save_dir="data/models/moma/",
-        weights_name="",
+        validation_data=(X_test, y_test),
+        verbose=True,
         callbacks=[
             WandbMetricsLogger(),
         ],
     )
+    proteomics_model.save_weights("data/models/moma/proteomics.weights.h5")
+
     print("\n==== DONE ====\n")
 
     total_samples = len(X_train)
@@ -93,14 +99,14 @@ def ralser_main():
         val_loss * config.batch_size / len(X_test)
         for val_loss in history.history["val_loss"]
     ]
-    ralser_train._plot_loss(
+    train.plot_loss(
         loss=normalized_loss,
         val_loss=normalized_val_loss,
         plot_to_save_dir="data/models/moma/",
         name="proteomics",
     )
 
-    results = ralser_train._evaluate(
+    results = train.evaluate(
         model=proteomics_model,
         X_test=X_test,
         y_test=y_test,
@@ -129,13 +135,7 @@ def get_ralser_train_test_data(
     dict[str, pd.DataFrame]
         The training and test sets.
     """
-    proteomics_data_ralser = pd.read_csv("data/models/moma/yeast5k_impute_wide.csv")
-    growth_rates_ralser = pd.read_csv("data/tasks/task3/yeast5k_growthrates_byORF.csv")
-
-    preprocessed_data = ralser_preprocessing.ralser_preprocessing(
-        proteomics_data=proteomics_data_ralser,
-        growth_data=growth_rates_ralser[["orf", "SC"]],
-    )
+    preprocessed_data = get_ralser_data()
 
     proteomics_data = preprocessed_data["proteomics"]
     growth_data = preprocessed_data["growth"]
@@ -154,6 +154,26 @@ def get_ralser_train_test_data(
         "X_test": proteomics_data["test"],
         "y_test": growth_data["test"],
     }
+
+
+def get_ralser_data() -> dict[str, pd.DataFrame]:
+    """Get the Ralser proteomics and growth data.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        The proteomics and growth data.
+        keys: "proteomics" and "growth"
+    """
+    proteomics_data_ralser = pd.read_csv("data/models/moma/yeast5k_impute_wide.csv")
+    growth_rates_ralser = pd.read_csv("data/tasks/task3/yeast5k_growthrates_byORF.csv")
+
+    preprocessed_data = ralser_preprocessing.ralser_preprocessing(
+        proteomics_data=proteomics_data_ralser,
+        growth_data=growth_rates_ralser[["orf", "SC"]],
+    )
+
+    return preprocessed_data
 
 
 def _get_test_indices() -> list[int]:

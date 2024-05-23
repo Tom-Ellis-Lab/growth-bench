@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from bench.models.moma import preprocessing
+
 
 def culley_preprocessing(
     transcriptomics_data: pd.DataFrame,
@@ -60,17 +62,16 @@ def culley_preprocessing(
     )
     growth_data.set_index("knockout_id", inplace=True)
 
-    # Finding the Intersection of Knockouts
-    common_knockouts = set(transcriptomics_data.index).intersection(
-        fluxomics_data.index, growth_data.index
-    )
+    datasets = {
+        "transcriptomics": transcriptomics_data,
+        "fluxomics": fluxomics_data,
+        "growth": growth_data,
+    }
+    filtered_data = preprocessing.filter_data(datasets=datasets)
 
-    # Filtering Dataframes by the Intersection
-    transcriptomics_data = transcriptomics_data[
-        transcriptomics_data.index.isin(common_knockouts)
-    ]
-    fluxomics_data = fluxomics_data[fluxomics_data.index.isin(common_knockouts)]
-    growth_data = growth_data[growth_data.index.isin(common_knockouts)]
+    transcriptomics_data = filtered_data["transcriptomics"]
+    fluxomics_data = filtered_data["fluxomics"]
+    growth_data = filtered_data["growth"]
 
     # Sorting Dataframes by Knockout ID
     transcriptomics_data = transcriptomics_data.sort_index()

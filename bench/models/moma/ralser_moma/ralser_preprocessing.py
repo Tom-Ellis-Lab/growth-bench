@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from bench.models.moma import preprocessing
+
 
 def ralser_preprocessing(
     proteomics_data: pd.DataFrame,
@@ -38,12 +40,11 @@ def ralser_preprocessing(
     growth_data.set_index("systematic_name", inplace=True)
 
     # INTERSECTION - intersect two dataframes
-    common_knockouts = proteomics_data.index.intersection(growth_data.index)
+    datasets = {"proteomics": proteomics_data, "growth": growth_data}
+    preprocessed_data = preprocessing.filter_data(datasets=datasets)
 
-    aligned_proteomics_data = proteomics_data[
-        proteomics_data.index.isin(common_knockouts)
-    ]
-    aligned_growth_data = growth_data[growth_data.index.isin(common_knockouts)]
+    aligned_proteomics_data = preprocessed_data["proteomics"]
+    aligned_growth_data = preprocessed_data["growth"]
 
     # remove duplicates - keep only one of the duplicates
     aligned_proteomics_data_no_duplicates = aligned_proteomics_data[

@@ -12,7 +12,6 @@ sys.path.append(".")
 
 from bench.models.moma import model, train
 from bench.models.moma.culley_moma import culley_preprocessing
-from bench.models.moma.ralser_moma import ralser_train
 
 
 VALIDATION_SPLIT = 0.1
@@ -107,14 +106,14 @@ def culley_main():
         for val_loss in history.history["val_loss"]
     ]
 
-    ralser_train._plot_loss(
+    train.plot_loss(
         loss=normalized_loss,
         val_loss=normalized_val_loss,
         plot_to_save_dir="data/models/moma/",
         name="culley_model_loss",
     )
 
-    results = ralser_train._evaluate(
+    results = train.evaluate(
         model=double_view_model,
         X_test=[fluxomics_test, transcriptomics_test],
         y_test=y_test,
@@ -135,43 +134,7 @@ def get_culley_train_test_data() -> dict[str, pd.DataFrame]:
         The training and testing data.
         keys: X_train, y_train, X_test, y_test
     """
-    print("Loading data...")
-    full_data: pd.DataFrame = pyreadr.read_r("data/models/moma/complete_dataset.RDS")[
-        None
-    ]
-    transcriptomics_data: pd.DataFrame = pyreadr.read_r(
-        "data/models/moma/gene_expression_dataset.RDS"
-    )[None]
-
-    fluxomic_data = full_data.drop(columns=transcriptomics_data.columns.values)
-    print("Shape of fluxomics data", fluxomic_data.shape)
-    transcriptomics_data["knockout_id"] = full_data["Row"]
-    print("Shape of transcriptomics data", transcriptomics_data.shape)
-    # ORIGINAL Duibhir growth rates
-    growth_data = full_data[["Row", "log2relT"]]
-
-    # Ralser growth rates
-    growth_rates_ralser = pd.read_csv("data/tasks/task3/yeast5k_growthrates_byORF.csv")
-    growth_rates_ralser = growth_rates_ralser[["orf", "SC"]]
-    growth_rates_ralser.rename(columns={"orf": "Row", "SC": "log2relT"}, inplace=True)
-    growth_data = growth_rates_ralser
-
-    standard_and_systematic_names = pd.read_csv(
-        "bench/models/moma/yeast_gene_names.tsv", sep="\t"
-    )
-    names_mapping = create_names_mapping(
-        standard_and_systematic_names=standard_and_systematic_names
-    )
-    print("\n==== DONE ====\n")
-    print("Preprocessing data...")
-    preprocessed_data: dict[str, pd.DataFrame] = (
-        culley_preprocessing.culley_preprocessing(
-            transcriptomics_data=transcriptomics_data,
-            fluxomics_data=fluxomic_data,
-            growth_data=growth_data,
-            mapping_dict=names_mapping,
-        )
-    )
+    preprocessed_data: dict[str, pd.DataFrame] = get_culley_data()
 
     random_state = 42
     test_size = 0.2
@@ -220,6 +183,53 @@ def get_culley_train_test_data() -> dict[str, pd.DataFrame]:
         "train_indices": train_indices,
         "test_indices": test_indices,
     }
+    return result
+
+
+def get_culley_data() -> dict[str, pd.DataFrame]:
+    """Get the Culley dataset.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        The Culley dataset.
+        keys: transcriptomics, fluxomics, growth
+    """
+    print("Loading data...")
+    full_data: pd.DataFrame = pyreadr.read_r("data/models/moma/complete_dataset.RDS")[
+        None
+    ]
+    transcriptomics_data: pd.DataFrame = pyreadr.read_r(
+        "data/models/moma/gene_expression_dataset.RDS"
+    )[None]
+
+    fluxomic_data = full_data.drop(columns=transcriptomics_data.columns.values)
+    print("Shape of fluxomics data", fluxomic_data.shape)
+    transcriptomics_data["knockout_id"] = full_data["Row"]
+    print("Shape of transcriptomics data", transcriptomics_data.shape)
+    # ORIGINAL Duibhir growth rates
+    growth_data = full_data[["Row", "log2relT"]]
+
+    # Ralser growth rates
+    growth_rates_ralser = pd.read_csv("data/tasks/task3/yeast5k_growthrates_byORF.csv")
+    growth_rates_ralser = growth_rates_ralser[["orf", "SC"]]
+    growth_rates_ralser.rename(columns={"orf": "Row", "SC": "log2relT"}, inplace=True)
+    growth_data = growth_rates_ralser
+
+    standard_and_systematic_names = pd.read_csv(
+        "bench/models/moma/yeast_gene_names.tsv", sep="\t"
+    )
+    names_mapping = create_names_mapping(
+        standard_and_systematic_names=standard_and_systematic_names
+    )
+    print("\n==== DONE ====\n")
+    print("Preprocessing data...")
+    result: dict[str, pd.DataFrame] = culley_preprocessing.culley_preprocessing(
+        transcriptomics_data=transcriptomics_data,
+        fluxomics_data=fluxomic_data,
+        growth_data=growth_data,
+        mapping_dict=names_mapping,
+    )
     return result
 
 
