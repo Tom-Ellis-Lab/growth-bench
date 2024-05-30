@@ -8,7 +8,7 @@ You can find the dependencies for each strategy in the respective model's requir
 """
 
 from bench.tasks import Task1, Task2
-from bench.models import Woytock2018, RandomNormal, SimpleFBA
+from bench.models import RandomNormal, SimpleFBA
 from bench.models import yeast9
 from bench.models.moma import moma_strategy
 from bench.models.lasso import lasso_strategy
