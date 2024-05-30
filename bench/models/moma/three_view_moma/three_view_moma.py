@@ -1,3 +1,4 @@
+import random
 import sys
 
 import pandas as pd
@@ -6,36 +7,52 @@ import tensorflow as tf
 import wandb
 from wandb.integration.keras import WandbMetricsLogger
 
-
 sys.path.append(".")
 
 from bench.models.moma import model, train, preprocessing
 from bench.models.moma.culley_moma import culley_main
-from bench.models.moma.ralser_moma import ralser_main
+from bench.models.moma.ralser_moma import ralser_preprocessing
 
-wandb.init(
-    # set the wandb project where this run will be logged
-    project="growth-bench",
-    # track hyperparameters and run metadata with wandb.config
-    config={
-        "epochs": 1000,
-        "neurons": 1000,
-        "batch_size": 256,
-        "learning_rate": 0.005,
-        "momentum": 0.75,
-    },
-)
+config = {
+    "epochs": 3000,
+    "neurons": 1000,
+    "batch_size": 256,
+    "learning_rate": 0.015,
+    "momentum": 0.75,
+    "optimizer": "adagrad",
+    "n_outputs": 1,
+    "transcriptomics_weights_filename": "gene_expression_weights.h5",
+    "fluxomics_weights_filename": "fluxomics_newly_trained.weights.h5",
+    "proteomics_weights_filename": "proteomics_adagrad.weights.h5",
+    "weights_filename": "three_view",
+}
 
-config = wandb.config
 
-
-def three_view_moma() -> None:
+def three_view_moma(
+    config: wandb.Config,
+) -> None:
     """Train a three-view model using the MOMA dataset.
     The model is trained using the transcriptomics, fluxomics, and proteomics data.
 
     """
+    tf.random.set_seed(42)
+    random.seed(42)
+    print(f"\n==== THREE-VIEW MOMA {config.n_outputs}-OUTPUT MODEL ====\n")
+
+    if config.n_outputs == 1:
+        cols_growth_data = {
+            "SC": "growth_rate",
+        }
+    elif config.n_outputs == 3:
+        cols_growth_data = {
+            "SC": "growth_rate_SC",
+            "SM": "growth_rate_SM",
+            "YPD": "growth_rate_YPD",
+        }
     culley_preprocessed_data: dict[str, pd.DataFrame] = culley_main.get_culley_data()
-    ralser_preprocessed_data = ralser_main.get_ralser_data()
+    ralser_preprocessed_data = ralser_preprocessing.get_ralser_data(
+        cols_growth_data=cols_growth_data
+    )
     data = {
         "transcriptomics": culley_preprocessed_data["transcriptomics"],
         "fluxomics": culley_preprocessed_data["fluxomics"],
@@ -92,23 +109,34 @@ def three_view_moma() -> None:
         input_dim=transcriptomics_train.shape[1],
         model_name="transcriptomics",
         input_neurons=config.neurons,
+        output_neurons=config.n_outputs,
     )
-    transcriptomics_model.load_weights("data/models/moma/gene_expression_weights.h5")
+
+    transcriptomics_model.load_weights(
+        f"data/models/moma/{config.transcriptomics_weights_filename}"
+    )
 
     fluxomics_model = model.init_single_view_model(
         input_dim=fluxomics_train.shape[1],
         model_name="fluxomics",
-        input_neurons=config.neurons,
+        input_neurons=config.neuro  ns,
+        output_neurons=config.n_outputs,
     )
 
-    fluxomics_model.load_weights("data/models/moma/fluxomic_weights.h5")
+    fluxomics_model.load_weights(
+        f"data/models/moma/{config.fluxomics_weights_filename}"
+    )
 
     proteomics_model = model.init_single_view_model(
         input_dim=proteomics_train.shape[1],
         model_name="proteomics",
         input_neurons=config.neurons,
+        output_neurons=config.n_outputs,
     )
-    proteomics_model.load_weights("data/models/moma/proteomics_final.weights.h5")
+
+    proteomics_model.load_weights(
+        f"data/models/moma/{config.proteomics_weights_filename}"
+    )
 
     triple_view_model = model.init_triple_view_model(
         input1_dim=fluxomics_train.shape[1],
@@ -120,13 +148,13 @@ def three_view_moma() -> None:
         model_3=proteomics_model,
     )
 
-    # Try different optimisers, but first Adam
+    optimiser = preprocessing.get_optimiser(config=config)
+
     triple_view_model.compile(
         loss="mean_squared_error",
-        optimizer=tf.keras.optimizers.Adam(),
+        optimizer=optimiser,
         metrics=["mean_absolute_error"],
     )
-    callback = tf.keras.callbacks.EarlyStopping(patience=100)
     history = triple_view_model.fit(
         x=[fluxomics_train, transcriptomics_train, proteomics_train],
         y=y_train,
@@ -136,11 +164,15 @@ def three_view_moma() -> None:
             [fluxomics_test, transcriptomics_test, proteomics_test],
             y_test,
         ),
-        verbose=True,
-        callbacks=[WandbMetricsLogger(), callback],
+        verbose="auto",
+        callbacks=[
+            WandbMetricsLogger(),
+        ],
     )
-
-    triple_view_model.save_weights("data/models/moma/three_view_model.weights.h5")
+    if config.weights_filename is not "":
+        triple_view_model.save_weights(
+            f"data/models/moma/{config.weights_filename}_{config.n_outputs}_model.weights.h5"
+        )
 
     total_samples = len(X_train)  # Total number of samples in the training set
     normalized_loss = [
@@ -161,7 +193,7 @@ def three_view_moma() -> None:
         X_test=[fluxomics_test, transcriptomics_test, proteomics_test],
         y_test=y_test,
     )
-    print("\n==== 3-VIEW MODEL RESULTS ====\n")
+    print(f"\n==== 3-VIEW{config.n_outputs}-OUTPUT MODEL RESULTS ====\n")
     for key, value in results.items():
         print(f"{key}: {value}")
 
@@ -244,4 +276,10 @@ def split_data(
 
 
 if __name__ == "__main__":
-    three_view_moma()
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="growth-bench",
+        # track hyperparameters and run metadata with wandb.config
+        config=config,
+    )
+    three_view_moma(config=wandb.config)

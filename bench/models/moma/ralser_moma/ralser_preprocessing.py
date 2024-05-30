@@ -4,9 +4,39 @@ import pandas as pd
 from bench.models.moma import preprocessing
 
 
+def get_ralser_data(cols_growth_data: dict[str, str]) -> dict[str, pd.DataFrame]:
+    """Get the Ralser proteomics and growth data.
+
+    Parameters
+    ----------
+    cols_growth_data : dict[str, str]
+        The columns of growth rates to extract
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        The proteomics and growth data.
+        keys: "proteomics" and "growth"
+    """
+    proteomics_data_ralser = pd.read_csv("data/models/moma/yeast5k_impute_wide.csv")
+    growth_rates_ralser = pd.read_csv("data/tasks/task3/yeast5k_growthrates_byORF.csv")
+
+    # get only the growth rates of interest from cols_growth_data, and orf
+    growth_rates_ralser = growth_rates_ralser[["orf", *cols_growth_data.keys()]]
+
+    preprocessed_data = ralser_preprocessing(
+        proteomics_data=proteomics_data_ralser,
+        growth_data=growth_rates_ralser,
+        col_to_rename=cols_growth_data,
+    )
+
+    return preprocessed_data
+
+
 def ralser_preprocessing(
     proteomics_data: pd.DataFrame,
     growth_data: pd.DataFrame,
+    col_to_rename: dict[str, str],
 ) -> dict[str, pd.DataFrame]:
     """Preprocess the Ralser dataset for the MOMA model.
 
@@ -36,7 +66,8 @@ def ralser_preprocessing(
 
     # GROWTH
     growth_data.rename(columns={"orf": "systematic_name"}, inplace=True)
-    growth_data.rename(columns={"SC": "growth_rate"}, inplace=True)
+    for key, value in col_to_rename.items():
+        growth_data.rename(columns={key: value}, inplace=True)
     growth_data.set_index("systematic_name", inplace=True)
 
     # INTERSECTION - intersect two dataframes
@@ -57,6 +88,7 @@ def ralser_preprocessing(
     )
     aligned_growth_data = aligned_growth_data.sort_index()
 
+    np.random.seed(42)
     shuffled_indices = np.random.permutation(
         aligned_proteomics_data_no_duplicates.index
     )

@@ -1,11 +1,11 @@
 from typing import Union
 
+import keras
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy
 from sklearn.model_selection import train_test_split
-import tensorflow as tf
 import wandb
 
 
@@ -113,7 +113,7 @@ def plot_loss(
 
 
 def evaluate(
-    model: tf.keras.Model,
+    model: keras.Model,
     X_test: Union[np.ndarray, list[np.ndarray]],
     y_test: np.ndarray,
 ) -> dict[str, float]:
@@ -121,7 +121,7 @@ def evaluate(
 
     Parameters
     ----------
-    model : tf.keras.Model
+    model : keras.Model
         The model to evaluate.
     X_test : np.ndarray
         The test set features.

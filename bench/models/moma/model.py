@@ -1,4 +1,4 @@
-import tensorflow as tf
+import keras
 
 
 def init_single_view_model(
@@ -6,7 +6,7 @@ def init_single_view_model(
     model_name: str,
     input_neurons: int,
     output_neurons: int = 1,
-) -> tf.keras.Model:
+) -> keras.Model:
     """Initialize a model with the given parameters.
 
     Parameters
@@ -18,34 +18,34 @@ def init_single_view_model(
 
     Returns
     -------
-    tf.keras.Model
+    keras.Model
     """
     # Input layer
-    input = tf.keras.layers.Input(shape=(input_dim,))
+    input = keras.layers.Input(shape=(input_dim,))
 
     # Hidden layer (1)
-    layer = tf.keras.layers.Dense(
+    layer = keras.layers.Dense(
         input_neurons,
         activation="sigmoid",
-        kernel_constraint=tf.keras.constraints.max_norm(3),
+        kernel_constraint=keras.constraints.max_norm(3),
         name=f"{model_name}_1",
     )(input)
     # Set 40% of input units to 0 at each update during training time
-    layer = tf.keras.layers.Dropout(rate=0.4)(layer)
+    layer = keras.layers.Dropout(rate=0.4)(layer)
 
     # Hidden layer (2)
-    layer = tf.keras.layers.Dense(
+    layer = keras.layers.Dense(
         input_neurons,
         activation="sigmoid",
-        kernel_constraint=tf.keras.constraints.max_norm(3),
+        kernel_constraint=keras.constraints.max_norm(3),
         name=f"{model_name}_2",
     )(layer)
     # Set 40% of input units to 0 at each update during training time
-    layer = tf.keras.layers.Dropout(rate=0.4)(layer)
+    layer = keras.layers.Dropout(rate=0.4)(layer)
 
     # Final output layer
-    predictions = tf.keras.layers.Dense(output_neurons, activation="linear")(layer)
-    model = tf.keras.Model(inputs=input, outputs=predictions)
+    predictions = keras.layers.Dense(output_neurons, activation="linear")(layer)
+    model = keras.Model(inputs=input, outputs=predictions)
     print(f"Summary of the single-view model {model_name}")
     model.summary()
     return model
@@ -55,9 +55,9 @@ def init_double_view_model(
     input1_dim: int,
     input2_dim: int,
     neurons: int,
-    model_1: tf.keras.Model,
-    model_2: tf.keras.Model,
-) -> tf.keras.Model:
+    model_1: keras.Model,
+    model_2: keras.Model,
+) -> keras.Model:
     """Initialize a model with two inputs and one output.
 
     Parameters
@@ -68,29 +68,29 @@ def init_double_view_model(
         The number of features in the second input.
     neurons : int
         The number of neurons in the hidden layers.
-    model_1 : tf.keras.Model
+    model_1 : keras.Model
         The first model to use.
-    model_2 : tf.keras.Model
+    model_2 : keras.Model
         The second model to use.
 
     Returns
     -------
-    tf.keras.Model
+    keras.Model
 
     """
-    input_1 = tf.keras.layers.Input(shape=(input1_dim,))
-    input_2 = tf.keras.layers.Input(shape=(input2_dim,))
+    input_1 = keras.layers.Input(shape=(input1_dim,))
+    input_2 = keras.layers.Input(shape=(input2_dim,))
 
-    combined_layer = tf.keras.layers.Concatenate()([model_1(input_1), model_2(input_2)])
-    combined_layer = tf.keras.layers.Dense(
+    combined_layer = keras.layers.Concatenate()([model_1(input_1), model_2(input_2)])
+    combined_layer = keras.layers.Dense(
         neurons,
         activation="sigmoid",
-        kernel_constraint=tf.keras.constraints.max_norm(3),
+        kernel_constraint=keras.constraints.max_norm(3),
         name="last_hidden",
     )(combined_layer)
 
-    predictions = tf.keras.layers.Dense(1, activation="linear")(combined_layer)
-    result = tf.keras.Model(inputs=[input_1, input_2], outputs=predictions)
+    predictions = keras.layers.Dense(1, activation="linear")(combined_layer)
+    result = keras.Model(inputs=[input_1, input_2], outputs=predictions)
     return result
 
 
@@ -99,10 +99,11 @@ def init_triple_view_model(
     input2_dim: int,
     input3_dim: int,
     neurons: int,
-    model_1: tf.keras.Model,
-    model_2: tf.keras.Model,
-    model_3: tf.keras.Model,
-) -> tf.keras.Model:
+    model_1: keras.Model,
+    model_2: keras.Model,
+    model_3: keras.Model,
+    output_neurons: int = 1,
+) -> keras.Model:
     """Initialize a model with two inputs and one output.
 
     Parameters
@@ -115,32 +116,34 @@ def init_triple_view_model(
         The number of features in the third input.
     neurons : int
         The number of neurons in the hidden layers.
-    model_1 : tf.keras.Model
+    model_1 : keras.Model
         The first model to use.
-    model_2 : tf.keras.Model
+    model_2 : keras.Model
         The second model to use.
-    model_3 : tf.keras.Model
+    model_3 : keras.Model
         The third model to use.
 
     Returns
     -------
-    tf.keras.Model
+    keras.Model
 
     """
-    input_1 = tf.keras.layers.Input(shape=(input1_dim,))
-    input_2 = tf.keras.layers.Input(shape=(input2_dim,))
-    input_3 = tf.keras.layers.Input(shape=(input3_dim,))
+    input_1 = keras.layers.Input(shape=(input1_dim,))
+    input_2 = keras.layers.Input(shape=(input2_dim,))
+    input_3 = keras.layers.Input(shape=(input3_dim,))
 
-    combined_layer = tf.keras.layers.Concatenate()(
+    combined_layer = keras.layers.Concatenate()(
         [model_1(input_1), model_2(input_2), model_3(input_3)]
     )
-    combined_layer = tf.keras.layers.Dense(
+    combined_layer = keras.layers.Dense(
         neurons,
         activation="sigmoid",
-        kernel_constraint=tf.keras.constraints.max_norm(3),
+        kernel_constraint=keras.constraints.max_norm(3),
         name="last_hidden",
     )(combined_layer)
 
-    predictions = tf.keras.layers.Dense(1, activation="linear")(combined_layer)
-    result = tf.keras.Model(inputs=[input_1, input_2, input_3], outputs=predictions)
+    predictions = keras.layers.Dense(output_neurons, activation="linear")(
+        combined_layer
+    )
+    result = keras.Model(inputs=[input_1, input_2, input_3], outputs=predictions)
     return result

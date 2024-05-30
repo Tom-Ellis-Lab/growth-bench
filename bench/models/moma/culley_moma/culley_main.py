@@ -3,36 +3,32 @@ import sys
 
 import pandas as pd
 import pyreadr
-from sklearn import preprocessing
+from sklearn import preprocessing as sklearn_preprocessing
 import tensorflow as tf
 import wandb
 
 
 sys.path.append(".")
 
-from bench.models.moma import model, train
+from bench.models.moma import model, train, preprocessing
 from bench.models.moma.culley_moma import culley_preprocessing
 
 
-VALIDATION_SPLIT = 0.1
-
-wandb.init(
-    # set the wandb project where this run will be logged
-    project="growth-bench",
-    # track hyperparameters and run metadata with wandb.config
-    config={
-        "epochs": 1000,
-        "neurons": 1000,
-        "batch_size": 256,
-        "learning_rate": 0.005,
-        "momentum": 0.75,
-    },
-)
-
-config = wandb.config
+config = {
+    "epochs": 1000,
+    "neurons": 1000,
+    "batch_size": 256,
+    "learning_rate": 0.005,
+    "momentum": 0.75,
+    "optimizer": "sgd",
+    "n_outputs": 1,
+    "transcriptomics_weights_filename": "gene_expression_weights.h5",
+    "fluxomics_weights_filename": "fluxomic_weights.h5",
+    "weights_filename": "culley",
+}
 
 
-def culley_main():
+def culley_main(config: wandb.Config) -> None:
     print("\n==== CULLEY TRANSCRIPTOMICS FLUXOMICS TWO-VIEW MODEL ====\n")
     tf.random.set_seed(42)
     random.seed(42)
@@ -47,11 +43,11 @@ def culley_main():
     transcriptomics_test = X_test["transcriptomics"]
     fluxomics_test = X_test["fluxomics"]
 
-    scaler = preprocessing.StandardScaler().fit(transcriptomics_train)
+    scaler = sklearn_preprocessing.StandardScaler().fit(transcriptomics_train)
     transcriptomics_train = scaler.transform(transcriptomics_train)
     transcriptomics_test = scaler.transform(transcriptomics_test)
 
-    scaler = preprocessing.StandardScaler().fit(fluxomics_train)
+    scaler = sklearn_preprocessing.StandardScaler().fit(fluxomics_train)
     fluxomics_train = scaler.transform(fluxomics_train)
     fluxomics_test = scaler.transform(fluxomics_test)
     y_test = y_test.to_numpy()
@@ -62,7 +58,9 @@ def culley_main():
         model_name="transcriptomics",
         input_neurons=config.neurons,
     )
-    transcriptomics_model.load_weights("data/models/moma/gene_expression_weights.h5")
+    transcriptomics_model.load_weights(
+        f"data/models/moma/{config.transcriptomics_weights_filename}"
+    )
 
     fluxomics_model = model.init_single_view_model(
         input_dim=fluxomics_train.shape[1],
@@ -70,7 +68,9 @@ def culley_main():
         input_neurons=config.neurons,
     )
 
-    fluxomics_model.load_weights("data/models/moma/fluxomic_weights.h5")
+    fluxomics_model.load_weights(
+        f"data/models/moma/{config.fluxomics_weights_filename}"
+    )
 
     double_view_model = model.init_double_view_model(
         input1_dim=fluxomics_train.shape[1],
@@ -79,13 +79,11 @@ def culley_main():
         model_1=fluxomics_model,
         model_2=transcriptomics_model,
     )
-    sgd = tf.keras.optimizers.SGD(
-        learning_rate=config.learning_rate,
-        weight_decay=config.learning_rate / config.epochs,
-        momentum=config.momentum,
-    )
+
+    optimiser = preprocessing.get_optimiser(config=config)
+
     double_view_model.compile(
-        loss="mean_squared_error", optimizer=sgd, metrics=["mean_absolute_error"]
+        loss="mean_squared_error", optimizer=optimiser, metrics=["mean_absolute_error"]
     )
 
     history = double_view_model.fit(
@@ -94,10 +92,12 @@ def culley_main():
         epochs=config.epochs,
         batch_size=config.batch_size,
         validation_data=([fluxomics_test, transcriptomics_test], y_test),
-        verbose=1,
+        verbose="auto",
     )
 
-    double_view_model.save_weights("data/models/moma/culley.weights.h5")
+    double_view_model.save_weights(
+        f"data/models/moma/{config.weights_filename}.weights.h5"
+    )
 
     total_samples = len(X_train)  # Total number of samples in the training set
     normalized_loss = [
@@ -258,4 +258,10 @@ def create_names_mapping(
 
 
 if __name__ == "__main__":
-    culley_main()
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="growth-bench",
+        # track hyperparameters and run metadata with wandb.config
+        config=config,
+    )
+    culley_main(config=wandb.config)
