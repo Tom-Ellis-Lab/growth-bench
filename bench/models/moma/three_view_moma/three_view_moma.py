@@ -14,17 +14,24 @@ from bench.models.moma.culley_moma import culley_main
 from bench.models.moma.ralser_moma import ralser_preprocessing
 
 config = {
-    "epochs": 3000,
+    "epochs": 1000,
     "neurons": 1000,
     "batch_size": 256,
-    "learning_rate": 0.015,
+    "learning_rate": 0.005,
     "momentum": 0.75,
     "optimizer": "adagrad",
-    "n_outputs": 1,
-    "transcriptomics_weights_filename": "gene_expression_weights.h5",
-    "fluxomics_weights_filename": "fluxomics_newly_trained.weights.h5",
-    "proteomics_weights_filename": "proteomics_adagrad.weights.h5",
-    "weights_filename": "three_view",
+    "n_outputs": 3,
+    "growth_rate_source": "ralser",  # "culley"
+    "transcriptomics_weights_filename": "transcriptomics_three_outputs.weights.h5",
+    "fluxomics_weights_filename": "fluxomics_three_outputs.weights.h5",
+    "proteomics_weights_filename": "proteomics_3_output.weights.h5",
+    "weights_filename": None,  # "three_view",
+}
+
+GROWTH_MEDIA = {
+    1: "SC",
+    2: "SM",
+    3: "YPD",
 }
 
 
@@ -53,10 +60,15 @@ def three_view_moma(
     ralser_preprocessed_data = ralser_preprocessing.get_ralser_data(
         cols_growth_data=cols_growth_data
     )
+    if config.growth_rate_source == "ralser":
+        growth_data = ralser_preprocessed_data["growth"]
+    elif config.growth_rate_source == "culley":
+        growth_data = culley_preprocessed_data["growth"]
+
     data = {
         "transcriptomics": culley_preprocessed_data["transcriptomics"],
         "fluxomics": culley_preprocessed_data["fluxomics"],
-        "growth": culley_preprocessed_data["growth"],
+        "growth": growth_data,
         "proteomics": ralser_preprocessed_data["proteomics"],
     }
 
@@ -119,7 +131,7 @@ def three_view_moma(
     fluxomics_model = model.init_single_view_model(
         input_dim=fluxomics_train.shape[1],
         model_name="fluxomics",
-        input_neurons=config.neuro  ns,
+        input_neurons=config.neurons,
         output_neurons=config.n_outputs,
     )
 
@@ -146,6 +158,7 @@ def three_view_moma(
         model_1=fluxomics_model,
         model_2=transcriptomics_model,
         model_3=proteomics_model,
+        output_neurons=config.n_outputs,
     )
 
     optimiser = preprocessing.get_optimiser(config=config)
@@ -164,12 +177,12 @@ def three_view_moma(
             [fluxomics_test, transcriptomics_test, proteomics_test],
             y_test,
         ),
-        verbose="auto",
+        verbose=0,
         callbacks=[
             WandbMetricsLogger(),
         ],
     )
-    if config.weights_filename is not "":
+    if config.weights_filename is not None:
         triple_view_model.save_weights(
             f"data/models/moma/{config.weights_filename}_{config.n_outputs}_model.weights.h5"
         )
@@ -192,12 +205,24 @@ def three_view_moma(
         model=triple_view_model,
         X_test=[fluxomics_test, transcriptomics_test, proteomics_test],
         y_test=y_test,
+        n_outputs=config.n_outputs,
     )
-    print(f"\n==== 3-VIEW{config.n_outputs}-OUTPUT MODEL RESULTS ====\n")
+    print(f"\n==== 3-VIEW {config.n_outputs}-OUTPUT MODEL RESULTS ====\n")
     for key, value in results.items():
         print(f"{key}: {value}")
 
-    wandb.log(results)
+    for i, media in enumerate(GROWTH_MEDIA, start=1):
+        # Access the results for each output
+        results_i = results[f"output_{i}"]
+
+        # Construct the metrics dictionary using a dictionary comprehension
+        metrics = {
+            f"{metric}_{media}": results_i[metric]
+            for metric in ["mse", "mae", "pearson", "r_squared", "spearman"]
+        }
+
+        # Log the metrics to wandb
+        wandb.log(metrics)
 
 
 def split_data(

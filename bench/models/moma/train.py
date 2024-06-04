@@ -7,6 +7,7 @@ import pandas as pd
 import scipy
 from sklearn.model_selection import train_test_split
 import wandb
+from wandb import plot as wandb_plot
 
 
 def random_split(
@@ -102,10 +103,10 @@ def plot_loss(
     table_val_loss = wandb.Table(data=data_val_loss, columns=["epochs", "loss"])
     wandb.log(
         {
-            f"train_loss_{name}": wandb.plot.line(
+            f"train_loss_{name}": wandb_plot.line(
                 table_train_loss, "epochs", "loss", title=f"Training Loss ({name})"
             ),
-            f"val_loss_{name}": wandb.plot.line(
+            f"val_loss_{name}": wandb_plot.line(
                 table_val_loss, "epochs", "loss", title=f"Validation Loss ({name})"
             ),
         }
@@ -116,7 +117,8 @@ def evaluate(
     model: keras.Model,
     X_test: Union[np.ndarray, list[np.ndarray]],
     y_test: np.ndarray,
-) -> dict[str, float]:
+    n_outputs: int = 1,
+) -> dict[str, dict[str, float]]:
     """Evaluate the model on the test set.
 
     Parameters
@@ -126,55 +128,81 @@ def evaluate(
     X_test : np.ndarray
         The test set features.
     y_test : np.ndarray
-        The test set labels.
+        The test set labels with 3 dimensions.
+    n_outputs : int
+        The number of outputs of the model.
 
     Returns
     -------
-    float
-        The mean absolute error of the model on the test set.
+    dict[str, dict[str, float]]
+        A dictionary containing the metrics for each dimension.
     """
-    mse, mae = model.evaluate(x=X_test, y=y_test, verbose=1)
+    results = {}
+
+    # Evaluate the model and get predictions
+    # mse, mae = model.evaluate(x=X_test, y=y_test, verbose=1)
     y_predict = model.predict(X_test)
-    y_predict = y_predict.ravel()
-    y_test = y_test.ravel()
 
-    # R squared calculation
-    residual = y_test - y_predict
-    residual_sum_of_squares = np.sum(np.square(residual))
-    total_sum_of_squares = np.sum(np.square(y_test - np.mean(y_test)))
-    r_squared = 1 - (residual_sum_of_squares / total_sum_of_squares)
-    # Pearson
-    pearson, _ = scipy.stats.pearsonr(y_test, y_predict)
-    # Spearman
-    spearman, _ = scipy.stats.spearmanr(y_test, y_predict)
+    mae_values = []
+    mse_values = []
+    pearson_values = []
+    spearman_values = []
+    r_squared_values = []
 
-    # Coverage
-    non_nan_count = np.count_nonzero(~np.isnan(y_predict))
-    total_count = len(y_predict)
-    coverage = float(non_nan_count / total_count)
+    for i in range(n_outputs):
+        y_test_i = y_test[:, i].ravel()
+        y_predict_i = y_predict[:, i].ravel()
 
-    # Plot predicted vs true growth rates
+        # Mean Absolute Error (MAE)
+        mae = np.mean(np.abs(y_test_i - y_predict_i))
+        mae_values.append(mae)
 
-    plt.scatter(y_test, y_predict)
-    plt.xlabel("True growth rate")
-    plt.ylabel("Predicted growth rate")
-    plt.title("Predicted vs True growth rates")
-    plt.savefig("data/models/moma/proteomics_model_predictions.png")
-    plt.clf()
+        # Mean Squared Error (MSE)
+        mse = np.mean(np.square(y_test_i - y_predict_i))
+        mse_values.append(mse)
 
-    # Log the results to W&B
-    columns = ["True growth rate", "Predicted growth rate"]
-    test_table = wandb.Table(columns=columns)
-    for i in range(len(y_test)):
-        test_table.add_data(y_test[i], y_predict[i])
-    wandb.log({"proteomics_model_predictions": test_table})
+        # R squared calculation
+        residual = y_test_i - y_predict_i
+        residual_sum_of_squares = np.sum(np.square(residual))
+        total_sum_of_squares = np.sum(np.square(y_test_i - np.mean(y_test_i)))
+        r_squared = 1 - (residual_sum_of_squares / total_sum_of_squares)
+        r_squared_values.append(r_squared)
 
-    result = {
-        "mae": mae,
-        "mse": mse,
-        "pearson": pearson,
-        "spearman": spearman,
-        "coverage": coverage,
-        "r_squared": r_squared,
-    }
-    return result
+        # Pearson
+        pearson, _ = scipy.stats.pearsonr(y_test_i, y_predict_i)
+        pearson_values.append(pearson)
+
+        # Spearman
+        spearman, _ = scipy.stats.spearmanr(y_test_i, y_predict_i)
+        spearman_values.append(spearman)
+
+        # Coverage
+        non_nan_count = np.count_nonzero(~np.isnan(y_predict_i))
+        total_count = len(y_predict_i)
+        coverage = float(non_nan_count / total_count)
+
+        # Plot predicted vs true values
+        plt.scatter(y_test_i, y_predict_i)
+        plt.xlabel("True values")
+        plt.ylabel("Predicted values")
+        plt.title(f"Predicted vs True values for output {i+1}")
+        plt.savefig(f"data/models/moma/proteomics_model_predictions_output_{i+1}.png")
+        plt.clf()
+
+        # Log the results to W&B
+        columns = ["True values", "Predicted values"]
+        test_table = wandb.Table(columns=columns)
+        for j in range(len(y_test_i)):
+            test_table.add_data(y_test_i[j], y_predict_i[j])
+        wandb.log({f"proteomics_model_predictions_output_{i+1}": test_table})
+
+        results[f"output_{i+1}"] = {
+            "mae": mae,
+            "mse": mse,
+            "pearson": pearson,
+            "spearman": spearman,
+            "coverage": coverage,
+            "r_squared": r_squared,
+        }
+
+    return results
