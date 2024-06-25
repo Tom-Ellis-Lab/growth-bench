@@ -1,5 +1,3 @@
-from typing import Union
-
 import keras
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,12 +6,216 @@ import scipy
 from sklearn.model_selection import train_test_split
 import wandb
 from wandb import plot as wandb_plot
+from wandb.integration.keras import WandbMetricsLogger
+
+
+from bench.models.moma import preprocessing, train
+
+
+def train_and_evaluate(
+    config: wandb.Config,
+    model: keras.Model,
+    data: dict[str, dict[str, pd.DataFrame]],
+) -> dict[str, dict[str, float]]:
+    """Train the model, and evaluate it.
+
+    Parameters
+    ----------
+    config : wandb.Config
+        The configuration object.
+
+    data : dict[str, pd.DataFrame]
+        The data to use for training and testing.
+
+    Returns
+    -------
+    dict[str, dict[str, float]]
+        The results of the model evaluation.
+    """
+
+    optimiser = preprocessing.get_optimiser(config=config)
+
+    model.compile(
+        optimizer=optimiser,
+        loss="mean_squared_error",
+        metrics=["mean_squared_error"],
+    )
+
+    y_train = data["train"]["growth"]
+    y_train = y_train.to_numpy()
+    y_test = data["test"]["growth"]
+    y_test = y_test.to_numpy()
+
+    history = model.fit(
+        x=[
+            data["scaled_train"][key] for key in data["train"].keys() if key != "growth"
+        ],
+        y=y_train,
+        epochs=config.epochs,
+        batch_size=config.batch_size,
+        validation_data=(
+            [
+                data["scaled_test"][key]
+                for key in data["test"].keys()
+                if key != "growth"
+            ],
+            data["test"]["growth"],
+        ),
+        verbose=0,
+        callbacks=[WandbMetricsLogger()],
+    )
+
+    if config.save_weights:
+        print("\n==== SAVING WEIGHTS ====\n")
+
+        name = f"{config.input_type}_medium{config.medium}_lr{config.learning_rate}_epochs{config.epochs}_batch{config.batch_size}_neurons{config.neurons}_optimiser{config.optimizer}"
+
+        model.save_weights(f"data/models/moma/{name}.weights.h5")
+
+    X_test = [
+        data["scaled_test"][key] for key in data["test"].keys() if key != "growth"
+    ]
+
+    results = train.evaluate(
+        model=model,
+        X_test=X_test,
+        y_test=y_test,
+    )
+    results[config.medium] = results.pop("output_1")
+    results[config.medium]["history"] = history.history
+    return results
+
+
+def split_data_using_indices(
+    data: dict[str, pd.DataFrame], train_index: np.ndarray, test_index: np.ndarray
+) -> dict[str, dict[str, pd.DataFrame]]:
+    """Split the data based on the indices.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The data to split.
+
+    train_index : np.ndarray
+        The indices for the training data.
+
+    test_index : np.ndarray
+        The indices for the test data.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        The training and test data.
+    """
+
+    train_indices = {key: value.index[train_index] for key, value in data.items()}
+    test_indices = {key: value.index[test_index] for key, value in data.items()}
+
+    train_data = {key: value.loc[train_indices[key]] for key, value in data.items()}
+    test_data = {key: value.loc[test_indices[key]] for key, value in data.items()}
+
+    result = {"train": train_data, "test": test_data}
+    return result
+
+
+def split_data_using_names(
+    data: dict[str, pd.DataFrame], set_seed: bool
+) -> dict[str, dict[str, pd.DataFrame]]:
+    """Split the data based on the names.
+
+    Parameters
+    ----------
+    data : dict[str, pd.DataFrame]
+        The data to split.
+
+    set_seed : bool
+        Whether to set the seed for reproducibility.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        The training and test sets.
+        keys: "train" and "test"
+    """
+
+    if set_seed:
+        train_set, test_set = train_test_split(
+            data["growth"], test_size=0.2, random_state=42
+        )
+    else:
+        train_set, test_set = train_test_split(data["growth"], test_size=0.2)
+
+    train_set_indices = train_set.index
+    test_set_indices = test_set.index
+
+    results = {}
+    results["train"] = {
+        key: value.loc[train_set_indices] for key, value in data.items()
+    }
+    results["test"] = {key: value.loc[test_set_indices] for key, value in data.items()}
+    return results
+
+
+def compute_error_on_selected_genes(
+    selected_genes: list[str],
+    data: dict[str, dict[str, pd.DataFrame]],
+    trained_model: keras.Model,
+    input_type: list[str],
+    medium: str,
+) -> dict[str, dict[str, float]]:
+    """Compute the error on the selected genes.
+
+    Parameters
+    ----------
+    selected_genes : list[str]
+        The selected genes for analysis.
+
+    data : dict[str, pd.DataFrame]
+        The data used for training.
+
+    trained_model : keras.Model
+        The trained model.
+
+    input_type : list[str]
+        The input type.
+
+    medium : str
+        The medium to use.
+    """
+    selected_genes_indices = [
+        data["test"][input_type[0]].index.get_loc(gene) for gene in selected_genes
+    ]
+    y_test = data["test"]["growth"]
+    selected_y_test = y_test.loc[selected_genes]
+    X_test = [
+        data["scaled_test"][key] for key in data["test"].keys() if key != "growth"
+    ]
+    selected_X_test = [X[np.ix_(selected_genes_indices)] for X in X_test]
+    selected_y_pred = trained_model.predict(selected_X_test)
+
+    individual_mae = np.abs(selected_y_pred - selected_y_test)
+    individual_mse = (selected_y_pred - selected_y_test) ** 2
+
+    print("=====================================")
+    print("ANALYSIS ON SELECTED GENES")
+    print("Individual MAE:", individual_mae)
+    print("-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-")
+    print("Individual MSE:", individual_mse)
+    print("=====================================")
+    result = {}
+    for i, gene in enumerate(selected_genes):
+        result[gene] = {
+            "MAE": individual_mae[f"growth_rate_{medium}"].iloc[i],
+            "MSE": individual_mse[f"growth_rate_{medium}"].iloc[i],
+        }
+
+    return result
 
 
 def random_split(
     data: pd.DataFrame, test_size: float = 0.2, random_state: int = 42
 ) -> dict[str, pd.DataFrame]:
-    """Randomly split the dataset into training and test sets.
+    """TODO: Deprecated - Randomly split the dataset into training and test sets.
 
     Parameters
     ----------
@@ -40,7 +242,7 @@ def random_split(
 def apply_indices_split(
     data: pd.DataFrame, train_indices: pd.Index, test_indices: pd.Index
 ) -> dict[str, pd.DataFrame]:
-    """Apply predefined train and test indices to split the dataset.
+    """TODO: Deprecated - Apply predefined train and test indices to split the dataset.
 
     Parameters
     ----------
@@ -66,10 +268,47 @@ def apply_indices_split(
 def plot_loss(
     loss: list[float],
     val_loss: list[float],
-    plot_to_save_dir: str,
     name: str,
 ) -> None:
     """Plot the loss and validation loss of the model.
+
+    Parameters
+    ----------
+    loss : list[float]
+        The training loss.
+    val_loss : list[float]
+        The validation loss.
+    plot_to_save_dir : str
+        The directory to save the plot.
+    name : str
+        The name of the plot.
+    """
+
+    # Generate the epoch numbers starting from 21 since you cut off the first 20
+    epochs = range(21, len(loss) + 1)
+    data_train_loss = [[x, y] for (x, y) in zip(epochs, loss[20:])]
+    data_val_loss = [[x, y] for (x, y) in zip(epochs, val_loss[20:])]
+    table_train_loss = wandb.Table(data=data_train_loss, columns=["epochs", "loss"])
+    table_val_loss = wandb.Table(data=data_val_loss, columns=["epochs", "loss"])
+    wandb.log(
+        {
+            f"train_loss_{name}": wandb_plot.line(
+                table_train_loss, "epochs", "loss", title=f"Training Loss ({name})"
+            ),
+            f"val_loss_{name}": wandb_plot.line(
+                table_val_loss, "epochs", "loss", title=f"Validation Loss ({name})"
+            ),
+        }
+    )
+
+
+def plot_lossxx(
+    loss: list[float],
+    val_loss: list[float],
+    plot_to_save_dir: str,
+    name: str,
+) -> None:
+    """TODO: Deprecated - Plot the loss and validation loss of the model.
 
     Parameters
     ----------
@@ -115,7 +354,7 @@ def plot_loss(
 
 def evaluate(
     model: keras.Model,
-    X_test: Union[np.ndarray, list[np.ndarray]],
+    X_test: list[np.ndarray],
     y_test: np.ndarray,
     n_outputs: int = 1,
 ) -> dict[str, dict[str, float]]:
@@ -140,7 +379,6 @@ def evaluate(
     results = {}
 
     # Evaluate the model and get predictions
-    # mse, mae = model.evaluate(x=X_test, y=y_test, verbose=1)
     y_predict = model.predict(X_test)
 
     mae_values = []

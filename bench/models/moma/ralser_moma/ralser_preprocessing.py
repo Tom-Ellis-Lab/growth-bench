@@ -19,7 +19,7 @@ def get_ralser_data(cols_growth_data: dict[str, str]) -> dict[str, pd.DataFrame]
         keys: "proteomics" and "growth"
     """
     proteomics_data_ralser = pd.read_csv("data/models/moma/yeast5k_impute_wide.csv")
-    growth_rates_ralser = pd.read_csv("data/tasks/task3/yeast5k_growthrates_byORF.csv")
+    growth_rates_ralser = pd.read_csv("data/models/moma/yeast5k_growthrates_byORF.csv")
 
     # get only the growth rates of interest from cols_growth_data, and orf
     growth_rates_ralser = growth_rates_ralser[["orf", *cols_growth_data.keys()]]

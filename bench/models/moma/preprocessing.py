@@ -2,14 +2,209 @@ import keras
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
+from sklearn import preprocessing as sklearn_preprocessing
 import wandb
+
+from bench.models.moma.ralser_moma import ralser_preprocessing
+from bench.models.moma.culley_moma import culley_main
+
+
+def get_data(medium: str, input_type: list[str]) -> dict[str, pd.DataFrame]:
+    """Get the data based on the medium and input type.
+
+    Parameters
+    ----------
+    medium : str
+        The medium used for the growth data.
+
+    input_type : list[str]
+        The omics data to include.
+    """
+    growth_rate_medium = {medium: f"growth_rate_{medium}"}
+
+    culley_data_loaded = False
+    ralser_data_loaded = False
+
+    if medium in ["SC", "SM", "YPD"]:
+        ralser_data = ralser_preprocessing.get_ralser_data(
+            cols_growth_data=growth_rate_medium
+        )
+        growth_data = ralser_data["growth"]
+        ralser_data_loaded = True
+    if medium == "SD":
+        culley_data = culley_main.get_culley_data()
+        growth_data = culley_data["growth"]
+        culley_data_loaded = True
+
+    input_data = {}
+    for omics in input_type:
+        if omics == "proteomics":
+            if ralser_data_loaded:
+                input_data[omics] = ralser_data["proteomics"]
+            else:
+                ralser_data = ralser_preprocessing.get_ralser_data(
+                    cols_growth_data=growth_rate_medium
+                )
+            input_data[omics] = ralser_data["proteomics"]
+        elif omics in ["transcriptomics", "fluxomics"]:
+            if culley_data_loaded:
+                input_data[omics] = culley_data[omics]
+            else:
+                culley_data = culley_main.get_culley_data()
+            input_data[omics] = culley_data[omics]
+
+    results = input_data.copy()
+    results["growth"] = growth_data
+    return results
+
+
+def get_normalised_loss(
+    data: dict[str, dict[str, pd.DataFrame]],
+    history: dict[str, list[float]],
+    config: wandb.Config,
+    type_of_loss: str,
+) -> list[float]:
+    """Get the normalised loss.
+
+    Parameters
+    ----------
+    data : dict[str, pd.DataFrame]
+        The data used for training.
+
+    history : dict[str, list[float]]
+        The history of the model.
+
+    config : wandb.Config
+        The configuration object.
+
+    type_of_loss : str
+        The type of loss to normalise.
+
+    Returns
+    -------
+    list[float]
+        The normalised loss.
+    """
+    if type_of_loss == "loss":
+        total_samples = get_total_samples(data=data["train"])
+        loss = history["loss"]
+        normalised_loss = [
+            loss_value * config.batch_size / total_samples for loss_value in loss
+        ]
+    elif type_of_loss == "val_loss":
+        total_samples = get_total_samples(data=data["test"])
+        val_loss = history["val_loss"]
+        normalised_loss = [
+            val_loss_value * config.batch_size / total_samples
+            for val_loss_value in val_loss
+        ]
+    else:
+        raise ValueError("The type of loss is not recognised.")
+    return normalised_loss
+
+
+def get_total_samples(
+    data: dict[str, pd.DataFrame],
+) -> int:
+    """Get the total number of training samples.
+
+    Parameters
+    ----------
+    data : dict[str, pd.DataFrame]
+        The training data.
+
+    Returns
+    -------
+    int
+        The total number of training samples.
+    """
+    for key, value in data.items():
+        if key != "growth":
+            total_samples = len(value)
+            return total_samples
+    raise ValueError("The training data does not contain any samples.")
+
+
+def scale_data(
+    data: dict[str, dict[str, pd.DataFrame]]
+) -> dict[str, dict[str, pd.DataFrame]]:
+    """Scale the data using StandardScaler.
+
+    Parameters
+    ----------
+    data : dict[str, dict[str, pd.DataFrame]]
+        The data to scale.
+
+    Returns
+    -------
+    dict[str, dict[str, pd.DataFrame]]
+        The scaled data.
+    """
+    train_data = data["train"]
+    test_data = data["test"]
+
+    scaled_train = {}
+    scaled_test = {}
+
+    for key, value in train_data.items():
+        if key != "growth":
+            scaler = sklearn_preprocessing.StandardScaler().fit(value)
+            scaled_train[key] = scaler.transform(value)
+            scaled_test[key] = scaler.transform(test_data[key])
+
+    data["scaled_train"] = scaled_train
+    data["scaled_test"] = scaled_test
+    return data
+
+
+def select_genes_for_analysis(
+    growth_rate: pd.DataFrame, medium: str, n_intervals: int
+) -> list[str]:
+    """Select genes for analysis based on the growth rate.
+
+    Parameters
+    ----------
+    growth_rate : pd.DataFrame
+        The growth rate data.
+
+    medium : str
+        The medium to select the genes for.
+
+    n_intervals : int
+        The number of intervals to divide the growth rate.
+
+    Returns
+    -------
+    list[str]
+        The selected genes for analysis.
+    """
+    sorted_growth_rates = growth_rate.sort_values(f"growth_rate_SC")
+    # Compute range and intervals
+    min_growth = sorted_growth_rates[f"growth_rate_{medium}"].min()
+    max_growth = sorted_growth_rates[f"growth_rate_{medium}"].max()
+    interval_size = (
+        max_growth - min_growth
+    ) / (n_intervals - 1) # We use 9 intervals for 10 data points
+    # Initialize empty list to store selected indices
+    selected_indices = []
+
+    # Iterate through each interval and find the index closest to the midpoint
+    for i in range(n_intervals):
+        midpoint = min_growth + i * interval_size + interval_size / 2
+        closest_index = sorted_growth_rates.iloc[
+            (sorted_growth_rates[f"growth_rate_{medium}"] - midpoint)
+            .abs()
+            .argsort()[:1]
+        ].index
+        selected_indices.append(closest_index[0])
+    return selected_indices
 
 
 def intersect_input_data_with_growth_rates(
     input_data: pd.DataFrame, growth_rate_data: pd.DataFrame
 ):
     """Intersect the input data with the growth rate.
-    
+
     Built for Ralser and Culley growth data
 
     Parameters
