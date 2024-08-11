@@ -4,6 +4,36 @@ import pandas as pd
 import wandb
 
 
+def build_multiview_model(
+    config: wandb.Config,
+    train_data: dict[str, pd.DataFrame],
+    input_neurons: int,
+) -> keras.Model:
+    """Build the final model for the MOMA model.
+
+    Parameters
+    ----------
+    config : wandb.Config
+        The configuration object.
+
+    train_data : dict[str, pd.DataFrame]
+        The training data.
+
+    input_neurons : int
+        The number of neurons in the input layer.
+
+    Returns
+    -------
+    keras.Model
+        The final model.
+    """
+    models = build_models(config=config, train_data=train_data)
+    result = concatenate_model_into_multiview(
+        models=models, input_neurons=input_neurons, data=train_data
+    )
+    return result
+
+
 def build_models(
     config: wandb.Config,
     train_data: dict[str, pd.DataFrame],
@@ -32,7 +62,7 @@ def build_models(
                 input_neurons=config.neurons[input_type],
                 drouput_rate=config.dropout[input_type],
             )
-            if len(config.input_type) > 1: 
+            if len(config.input_type) > 1:
                 single_view_model.load_weights(
                     f"data/models/moma/{config.models_weights[input_type]}"
                 )

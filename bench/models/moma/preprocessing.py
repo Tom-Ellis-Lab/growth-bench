@@ -2,11 +2,14 @@ import keras
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
 from sklearn import preprocessing as sklearn_preprocessing
 import wandb
 
 from bench.models.moma.ralser_moma import ralser_preprocessing
 from bench.models.moma.culley_moma import culley_main
+
+from sklearn.model_selection import KFold
 
 
 def get_data(medium: str, input_type: list[str]) -> dict[str, pd.DataFrame]:
@@ -58,73 +61,6 @@ def get_data(medium: str, input_type: list[str]) -> dict[str, pd.DataFrame]:
     return results
 
 
-def get_normalised_loss(
-    data: dict[str, dict[str, pd.DataFrame]],
-    history: dict[str, list[float]],
-    config: wandb.Config,
-    type_of_loss: str,
-) -> list[float]:
-    """Get the normalised loss.
-
-    Parameters
-    ----------
-    data : dict[str, pd.DataFrame]
-        The data used for training.
-
-    history : dict[str, list[float]]
-        The history of the model.
-
-    config : wandb.Config
-        The configuration object.
-
-    type_of_loss : str
-        The type of loss to normalise.
-
-    Returns
-    -------
-    list[float]
-        The normalised loss.
-    """
-    if type_of_loss == "loss":
-        total_samples = get_total_samples(data=data["train"])
-        loss = history["loss"]
-        normalised_loss = [
-            loss_value * config.batch_size / total_samples for loss_value in loss
-        ]
-    elif type_of_loss == "val_loss":
-        total_samples = get_total_samples(data=data["test"])
-        val_loss = history["val_loss"]
-        normalised_loss = [
-            val_loss_value * config.batch_size / total_samples
-            for val_loss_value in val_loss
-        ]
-    else:
-        raise ValueError("The type of loss is not recognised.")
-    return normalised_loss
-
-
-def get_total_samples(
-    data: dict[str, pd.DataFrame],
-) -> int:
-    """Get the total number of training samples.
-
-    Parameters
-    ----------
-    data : dict[str, pd.DataFrame]
-        The training data.
-
-    Returns
-    -------
-    int
-        The total number of training samples.
-    """
-    for key, value in data.items():
-        if key != "growth":
-            total_samples = len(value)
-            return total_samples
-    raise ValueError("The training data does not contain any samples.")
-
-
 def scale_data(
     data: dict[str, dict[str, pd.DataFrame]]
 ) -> dict[str, dict[str, pd.DataFrame]]:
@@ -155,49 +91,6 @@ def scale_data(
     data["scaled_train"] = scaled_train
     data["scaled_test"] = scaled_test
     return data
-
-
-def select_genes_for_analysis(
-    growth_rate: pd.DataFrame, medium: str, n_intervals: int
-) -> list[str]:
-    """Select genes for analysis based on the growth rate.
-
-    Parameters
-    ----------
-    growth_rate : pd.DataFrame
-        The growth rate data.
-
-    medium : str
-        The medium to select the genes for.
-
-    n_intervals : int
-        The number of intervals to divide the growth rate.
-
-    Returns
-    -------
-    list[str]
-        The selected genes for analysis.
-    """
-    sorted_growth_rates = growth_rate.sort_values(f"growth_rate_SC")
-    # Compute range and intervals
-    min_growth = sorted_growth_rates[f"growth_rate_{medium}"].min()
-    max_growth = sorted_growth_rates[f"growth_rate_{medium}"].max()
-    interval_size = (
-        max_growth - min_growth
-    ) / (n_intervals - 1) # We use 9 intervals for 10 data points
-    # Initialize empty list to store selected indices
-    selected_indices = []
-
-    # Iterate through each interval and find the index closest to the midpoint
-    for i in range(n_intervals):
-        midpoint = min_growth + i * interval_size + interval_size / 2
-        closest_index = sorted_growth_rates.iloc[
-            (sorted_growth_rates[f"growth_rate_{medium}"] - midpoint)
-            .abs()
-            .argsort()[:1]
-        ].index
-        selected_indices.append(closest_index[0])
-    return selected_indices
 
 
 def intersect_input_data_with_growth_rates(
@@ -275,6 +168,101 @@ def filter_data(datasets: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
         name: df[df.index.isin(common_knockouts)] for name, df in datasets.items()
     }
 
+    return result
+
+
+def split_data(
+    data: dict[str, pd.DataFrame],
+    set_seed: bool,
+    cross_validation: int | None,
+) -> dict[int, dict[str, dict[str, pd.DataFrame]]]:
+    """
+    TODO: Add docstring
+    """
+    if cross_validation is None:
+        # No cross-validation, simple holdout split
+        result = {}
+        split_data = split_data_using_names(data=data, set_seed=set_seed)
+        result[0] = split_data
+    else:
+        # Cross-validation
+        result = {}
+        kf = KFold(n_splits=cross_validation, shuffle=True, random_state=42)
+        for fold, (train_index, test_index) in enumerate(kf.split(data["growth"])):
+            result[fold + 1] = split_data_using_indices(
+                data=data, train_index=train_index, test_index=test_index
+            )
+
+    return result
+
+
+def split_data_using_names(
+    data: dict[str, pd.DataFrame], set_seed: bool
+) -> dict[str, dict[str, pd.DataFrame]]:
+    """Split the data based on the names.
+
+    Parameters
+    ----------
+    data : dict[str, pd.DataFrame]
+        The data to split.
+
+    set_seed : bool
+        Whether to set the seed for reproducibility.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        The training and test sets.
+        keys: "train" and "test"
+    """
+
+    if set_seed:
+        train_set, test_set = train_test_split(
+            data["growth"], test_size=0.2, random_state=42
+        )
+    else:
+        train_set, test_set = train_test_split(data["growth"], test_size=0.2)
+
+    train_set_indices = train_set.index
+    test_set_indices = test_set.index
+
+    results = {}
+    results["train"] = {
+        key: value.loc[train_set_indices] for key, value in data.items()
+    }
+    results["test"] = {key: value.loc[test_set_indices] for key, value in data.items()}
+    return results
+
+
+def split_data_using_indices(
+    data: dict[str, pd.DataFrame], train_index: np.ndarray, test_index: np.ndarray
+) -> dict[str, dict[str, pd.DataFrame]]:
+    """Split the data based on the indices.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The data to split.
+
+    train_index : np.ndarray
+        The indices for the training data.
+
+    test_index : np.ndarray
+        The indices for the test data.
+
+    Returns
+    -------
+    dict[str, pd.DataFrame]
+        The training and test data.
+    """
+
+    train_indices = {key: value.index[train_index] for key, value in data.items()}
+    test_indices = {key: value.index[test_index] for key, value in data.items()}
+
+    train_data = {key: value.loc[train_indices[key]] for key, value in data.items()}
+    test_data = {key: value.loc[test_indices[key]] for key, value in data.items()}
+
+    result = {"train": train_data, "test": test_data}
     return result
 
 
