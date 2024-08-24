@@ -47,6 +47,29 @@ class DataSplitterParams:
                 )
 
 
+@dataclasses.dataclass
+class LearningData:
+    """
+    Data for learning.
+
+    Attributes
+    ----------
+    x_train : list[integrators.OmicsData]
+        The training data.
+    y_train : integrators.OmicsData
+        The training labels.
+    x_val : list[integrators.OmicsData]
+        The validation data.
+    y_val : integrators.OmicsData
+        The validation labels.
+    """
+
+    x_train: list[integrators.OmicsData]
+    y_train: integrators.OmicsData
+    x_val: list[integrators.OmicsData]
+    y_val: integrators.OmicsData
+
+
 class DataSplitterInterface(abc.ABC):
     @abc.abstractmethod
     def split(
@@ -75,7 +98,7 @@ class DataSplitter(DataSplitterInterface):
     def split(
         self,
         params: DataSplitterParams,
-    ) -> dict[str, dict[str, pd.DataFrame]]:
+    ) -> LearningData:
         """Split multiple datasets in a consistent manner.
 
         Parameters
@@ -85,27 +108,76 @@ class DataSplitter(DataSplitterInterface):
 
         Returns
         -------
-        dict[str, dict[str, pd.DataFrame]]
-            The training and test data.
-            keys: "train" and "test"
+        LearningData
+            The training and validation data.
         """
         data = params.data.to_dict()
         # get the first dataframe
         reference_df = next(iter(data.values()))
-        train_set, test_set = train_test_split(
-            reference_df, test_size=params.test_size, random_state=params.random_state
+        train_indices, test_indices = train_test_split(
+            reference_df.index,
+            test_size=params.test_size,
+            random_state=params.random_state,
         )
 
-        results = {}
+        # Training set
+        x_train = [
+            integrators.OmicsData(name=key, data=df.loc[train_indices])
+            for key, df in data.items()
+            if key != "growth"
+        ]
 
-        results["train"] = {
-            key: value.loc[train_set.index] for key, value in data.items()
-        }
-        results["test"] = {
-            key: value.loc[test_set.index] for key, value in data.items()
-        }
+        # Validation set
+        x_val = [
+            integrators.OmicsData(name=key, data=df.loc[test_indices])
+            for key, df in data.items()
+            if key != "growth"
+        ]
+
+        # Training target set
+        y_train = integrators.OmicsData(
+            name="growth",
+            data=data["growth"].loc[train_indices],
+        )
+
+        # Validation target set
+        y_val = integrators.OmicsData(
+            name="growth",
+            data=data["growth"].loc[test_indices],
+        )
+
+        results = LearningData(
+            x_train=x_train,
+            y_train=y_train,
+            x_val=x_val,
+            y_val=y_val,
+        )
 
         return results
+
+
+@dataclasses.dataclass
+class CrossValidationLearningData:
+    """
+    Data for learning with cross-validation.
+    Each attribute is a list of data for each fold.
+
+    Attributes
+    ----------
+    x_train : list[list[integrators.OmicsData]]
+        The training data.
+    y_train : list[integrators.OmicsData]
+        The training labels.
+    x_val : list[list[integrators.OmicsData]]
+        The validation data.
+    y_val : list[integrators.OmicsData]
+        The validation labels.
+    """
+
+    x_train: list[list[integrators.OmicsData]]
+    y_train: list[integrators.OmicsData]
+    x_val: list[list[integrators.OmicsData]]
+    y_val: list[integrators.OmicsData]
 
 
 class CrossValidationDataSplitter(DataSplitterInterface):
@@ -113,7 +185,7 @@ class CrossValidationDataSplitter(DataSplitterInterface):
     def split(
         self,
         params: DataSplitterParams,
-    ) -> dict[int, dict[str, dict[str, pd.DataFrame]]]:
+    ) -> CrossValidationLearningData:
         """Split multiple datasets for cross-validation.
 
         Parameters
@@ -132,12 +204,47 @@ class CrossValidationDataSplitter(DataSplitterInterface):
             random_state=params.random_state,
         )
 
-        result = {}
-        for fold, (train_index, test_index) in enumerate(kf.split(reference_df)):
-            # Split data based on indices directly within this method
-            train_data = {key: value.iloc[train_index] for key, value in data.items()}
-            test_data = {key: value.iloc[test_index] for key, value in data.items()}
+        x_train = []
+        y_train = []
+        x_val = []
+        y_val = []
 
-            result[fold + 1] = {"train": train_data, "test": test_data}
+        for train_index, test_index in kf.split(reference_df):
+            # Training set
+            x_train_fold = [
+                integrators.OmicsData(name=key, data=df.iloc[train_index])
+                for key, df in data.items()
+                if key != "growth"
+            ]
 
+            # Validation set
+            x_val_fold = [
+                integrators.OmicsData(name=key, data=df.iloc[test_index])
+                for key, df in data.items()
+                if key != "growth"
+            ]
+
+            # Training target set
+            y_train_fold = integrators.OmicsData(
+                name="growth",
+                data=data["growth"].iloc[train_index],
+            )
+
+            # Validation target set
+            y_val_fold = integrators.OmicsData(
+                name="growth",
+                data=data["growth"].iloc[test_index],
+            )
+
+            x_train.append(x_train_fold)
+            y_train.append(y_train_fold)
+            x_val.append(x_val_fold)
+            y_val.append(y_val_fold)
+
+        result = CrossValidationLearningData(
+            x_train=x_train,
+            y_train=y_train,
+            x_val=x_val,
+            y_val=y_val,
+        )
         return result

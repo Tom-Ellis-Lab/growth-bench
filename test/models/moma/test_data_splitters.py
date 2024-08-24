@@ -67,6 +67,46 @@ class TestDataSplitterParams:
             data_splitters.DataSplitterParams(data=invalid_data)
 
 
+class TestLearningData:
+
+    @pytest.fixture
+    def data(self):
+        df1 = pd.DataFrame(
+            {
+                "value": [1, 2, 3],
+            },
+            index=["a", "b", "c"],
+        )
+
+        df2 = pd.DataFrame(
+            {
+                "value": [10, 20, 30],
+            },
+            index=["a", "b", "c"],
+        )
+
+        return integrators.MultiomicsData(
+            proteomics=integrators.OmicsData(name="proteomics", data=df1),
+            transcriptomics=integrators.OmicsData(name="transcriptomics", data=df2),
+        )
+
+    def test_init(self, data):
+        """Test the initialization of the LearningData dataclass."""
+        x_train = [data.proteomics]
+        y_train = data.transcriptomics
+        x_val = [data.proteomics]
+        y_val = data.transcriptomics
+
+        learning_data = data_splitters.LearningData(
+            x_train=x_train, y_train=y_train, x_val=x_val, y_val=y_val
+        )
+
+        assert learning_data.x_train == x_train
+        assert learning_data.y_train == y_train
+        assert learning_data.x_val == x_val
+        assert learning_data.y_val == y_val
+
+
 @pytest.mark.parametrize(
     "test_case",
     [
@@ -141,24 +181,16 @@ class TestDataSplitter:
     def test_split(self, splitter, params, test_case):
         observed = splitter.split(params)
 
-        # Assertions for train and test sets
-        for key in test_case["input"].keys():
-            assert key in observed["train"]
-            assert key in observed["test"]
+        for omics in observed.x_train:
+            assert omics.data.shape[0] == test_case["expected"]["train_size"]
+            assert omics.data.shape[1] == test_case["expected"]["num_features"]
 
-            train_size = test_case["expected"]["train_size"]
-            test_size = test_case["expected"]["test_size"]
-            num_features = test_case["expected"]["num_features"]
+        for omics in observed.x_val:
+            assert omics.data.shape[0] == test_case["expected"]["test_size"]
+            assert omics.data.shape[1] == test_case["expected"]["num_features"]
 
-            # Validate the sizes of train and test sets
-            assert len(observed["train"][key]) == train_size
-            assert len(observed["test"][key]) == test_size
-
-            # Validate the shape (rows and columns) of the dataframes
-            assert observed["train"][key].shape[0] == train_size
-            assert observed["test"][key].shape[0] == test_size
-            assert observed["train"][key].shape[1] == num_features
-            assert observed["test"][key].shape[1] == num_features
+        assert observed.y_train.data.shape[0] == test_case["expected"]["train_size"]
+        assert observed.y_val.data.shape[0] == test_case["expected"]["test_size"]
 
 
 @pytest.mark.parametrize(
@@ -265,74 +297,28 @@ class TestCrossValidationDataSplitter:
     def test_split(self, params, test_case):
         """Test the cross-validation splitting functionality of the CrossValidationDataSplitter."""
         splitter = data_splitters.CrossValidationDataSplitter()
-        result = splitter.split(params)
+        observed = splitter.split(params)
 
         # Check the number of folds
         expected_num_folds = test_case["expected"]["num_folds"]
-        assert len(result) == expected_num_folds
-
-        # Check the keys
-        folds = [key for key in result.keys()]
-        expected_folds = list(range(1, expected_num_folds + 1))
-        assert folds == expected_folds
+        assert len(observed.x_train) == expected_num_folds
 
         # Check the content of each fold
-        for key in result.keys():
-            assert len(result[key]) == 2  # "train" and "test"
-            assert (
-                len(result[key]["train"]["growth"])
-                == test_case["expected"]["train_size"]
-            )
-            assert (
-                len(result[key]["test"]["growth"]) == test_case["expected"]["test_size"]
-            )
-            assert (
-                len(result[key]["train"]["proteomics"])
-                == test_case["expected"]["train_size"]
-            )
-            assert (
-                len(result[key]["test"]["proteomics"])
-                == test_case["expected"]["test_size"]
-            )
+        for fold_x_train in observed.x_train:
+            for omics in fold_x_train:
+                assert omics.data.shape[0] == test_case["expected"]["train_size"]
+                assert omics.data.shape[1] == test_case["expected"]["num_features"]
 
-            assert (
-                result[key]["train"]["growth"].shape[0]
-                == test_case["expected"]["train_size"]
-            )
-            assert (
-                result[key]["test"]["growth"].shape[0]
-                == test_case["expected"]["test_size"]
-            )
-            assert (
-                result[key]["train"]["proteomics"].shape[0]
-                == test_case["expected"]["train_size"]
-            )
-            assert (
-                result[key]["test"]["proteomics"].shape[0]
-                == test_case["expected"]["test_size"]
-            )
+        for fold_x_val in observed.x_val:
+            for omics in fold_x_val:
+                assert omics.data.shape[0] == test_case["expected"]["test_size"]
+                assert omics.data.shape[1] == test_case["expected"]["num_features"]
 
-            assert (
-                result[key]["train"]["growth"].shape[1]
-                == test_case["expected"]["num_features"]
-            )
-            assert (
-                result[key]["test"]["growth"].shape[1]
-                == test_case["expected"]["num_features"]
-            )
-            assert (
-                result[key]["train"]["proteomics"].shape[1]
-                == test_case["expected"]["num_features"]
-            )
-            assert (
-                result[key]["test"]["proteomics"].shape[1]
-                == test_case["expected"]["num_features"]
-            )
+        for fold_y_train in observed.y_train:
+            assert fold_y_train.data.shape[0] == test_case["expected"]["train_size"]
 
-            assert "knockout_id" in result[key]["train"]["growth"]
-            assert "knockout_id" in result[key]["test"]["growth"]
-            assert "growth_rate" in result[key]["train"]["growth"]
-            assert "growth_rate" in result[key]["test"]["growth"]
+        for fold_y_val in observed.y_val:
+            assert fold_y_val.data.shape[0] == test_case["expected"]["test_size"]
 
 
 class TestCrossValidationSplitterError:

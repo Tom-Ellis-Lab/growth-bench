@@ -1,8 +1,10 @@
 import abc
 import dataclasses
 
-import pandas as pd
+import numpy as np
 from sklearn import preprocessing as sklearn_preprocessing
+
+from bench.models.moma.preprocessing_utils import integrators
 
 
 @dataclasses.dataclass
@@ -11,86 +13,49 @@ class NormalisationParam:
 
     Attributes
     ----------
-    data : dict[str, dict[str, pd.DataFrame]]
-        The data to normalise.
-    target_name : str
-        The name of the target column
+    x_train : list[integrators.OmicsData]
+        The training data.
+    x_val : list[integrators.OmicsData]
+        The validation data.
     """
 
-    data: dict[str, dict[str, pd.DataFrame]]
-    target_name: str = "target"
+    x_train: list[integrators.OmicsData]
+    x_val: list[integrators.OmicsData]
 
-    def __post_init__(self):
-        self._verify(data=self.data, target_name=self.target_name)
 
-    def _verify(
-        self, data: dict[str, dict[str, pd.DataFrame]], target_name: str
-    ) -> dict[str, dict[str, pd.DataFrame]]:
-        """Verify that:
-        - the dict has only two keys: "train" and "test",
-        - the values are dict of keys and dataframes.
-        - the dataframes have the target column.
+@dataclasses.dataclass
+class ScaledData:
+    name: str
+    data: np.ndarray
 
-        Parameters
-        ----------
-        data : dict[str, dict[str, pd.DataFrame]]
-            The data to verify.
-        target_name : str
-            The name of the target column
 
-        Returns
-        -------
-        dict[str, dict[str, pd.DataFrame]]
-            The verified data.
-        """
-        if len(data) != 2:
-            raise ValueError("Data must have exactly two keys: 'train' and 'test'.")
-
-        for key, value in data.items():
-            if key not in ["train", "test"]:
-                raise ValueError(
-                    f"Unknown key: {key}. Only 'train' and 'test' are allowed."
-                )
-
-            if not isinstance(value, dict):
-                raise ValueError("The values must be dictionaries.")
-
-            has_target = False
-            for inner_key, inner_value in value.items():
-                if inner_key == target_name:
-                    has_target = True
-                if not isinstance(inner_key, str):
-                    raise ValueError("The keys must be strings.")
-
-                if not isinstance(inner_value, pd.DataFrame):
-                    raise ValueError("The values must be pandas DataFrames.")
-
-            if not has_target:
-                raise ValueError(f"Data must contain the target: {target_name}.")
-
-        return data
+@dataclasses.dataclass
+class NormalisedDataset:
+    scaled_x_train: list[ScaledData]
+    scaled_x_val: list[ScaledData]
 
 
 class Normaliser(abc.ABC):
     @abc.abstractmethod
-    def normalise(
-        self, params: NormalisationParam
-    ) -> dict[str, dict[str, pd.DataFrame]]:
+    def normalise(self, params: NormalisationParam) -> NormalisedDataset:
         """Normalise the data.
 
         Parameters
         ----------
         params : NormalisationParam
             The parameters for the normalisation.
+
+        Returns
+        -------
+        NormalisedDataset
+            The normalised data.
         """
         pass
 
 
 class StandardScalerNormaliser(Normaliser):
 
-    def normalise(
-        self, params: NormalisationParam
-    ) -> dict[str, dict[str, pd.DataFrame]]:
+    def normalise(self, params: NormalisationParam) -> NormalisedDataset:
         """
         Normalise the data using StandardScaler.
 
@@ -101,22 +66,30 @@ class StandardScalerNormaliser(Normaliser):
 
         Returns
         -------
-        dict[str, dict[str, pd.DataFrame]]
-            The original data with the scaled data added (keys: "scaled_train", "scaled_test").
+        NormalisedDataset
+            The normalised data.
         """
-        data = params.data
-        train_data = data["train"]
-        test_data = data["test"]
 
-        scaled_train = {}
-        scaled_test = {}
+        x_train = params.x_train
+        x_val = params.x_val
 
-        for key, value in train_data.items():
-            if key != params.target_name:
-                scaler = sklearn_preprocessing.StandardScaler().fit(value)
-                scaled_train[key] = scaler.transform(value)
-                scaled_test[key] = scaler.transform(test_data[key])
+        scaled_x_train = []
+        scaled_x_val = []
 
-        data["scaled_train"] = scaled_train
-        data["scaled_test"] = scaled_test
-        return data
+        for omics_data_train, omics_data_val in zip(x_train, x_val):
+            scaler = sklearn_preprocessing.StandardScaler().fit(omics_data_train.data)
+            scaled_train_data = scaler.transform(omics_data_train.data)
+            scaled_val_data = scaler.transform(omics_data_val.data)
+
+            scaled_x_train.append(
+                ScaledData(name=omics_data_train.name, data=scaled_train_data)
+            )
+            scaled_x_val.append(
+                ScaledData(name=omics_data_val.name, data=scaled_val_data)
+            )
+
+        result = NormalisedDataset(
+            scaled_x_train=scaled_x_train, scaled_x_val=scaled_x_val
+        )
+
+        return result
