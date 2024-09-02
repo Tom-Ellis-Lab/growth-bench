@@ -10,6 +10,14 @@ import pyreadr
 class Gateway(abc.ABC):
     @abc.abstractmethod
     def get(self) -> Any:
+        """
+        Get the data.
+
+        Returns
+        -------
+        Any
+            The data.
+        """
         pass
 
 
@@ -19,6 +27,14 @@ class ProteomicsGateway(Gateway):
         self.file_path = file_path
 
     def get(self) -> pd.DataFrame:
+        """
+        Get the proteomics data.
+
+        Returns
+        -------
+        pd.DataFrame
+            The proteomics data.
+        """
         return pd.read_csv(self.file_path)
 
 
@@ -28,6 +44,14 @@ class Yeast5kGrowthRatesGateway(Gateway):
         self.file_path = file_path
 
     def get(self) -> pd.DataFrame:
+        """
+        Get the yeast5k growth rates data.
+
+        Returns
+        -------
+        pd.DataFrame
+            The yeast5k growth rates
+        """
         return pd.read_csv(self.file_path)
 
 
@@ -37,6 +61,14 @@ class CulleyDataGateway(Gateway):
         self.file_path = file_path
 
     def get(self) -> pd.DataFrame:
+        """Get the culley data.
+
+        TODO: Explain what culley data is
+        Returns
+        -------
+        pd.DataFrame
+            The culley dat.
+        """
         result = pyreadr.read_r(self.file_path)[None]
         return result
 
