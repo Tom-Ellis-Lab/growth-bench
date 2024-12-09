@@ -31,5 +31,5 @@ etfl = [
 ]
 yeast9 = ["cobra"]
 lasso = ["cvxpy", "gurobipy", "pyreadr", "scikit-learn"]
-moma = ["keras", "matplotlib", "pyreadr", "scikit-learn", "tensorflow"]
+moma = ["keras", "matplotlib", "pyreadr", "scikit-learn", "tensorflow", "wandb"]
 all = ["bench[simplefba]", "bench[yeast9]", "bench[lasso]", "bench[moma]"]
